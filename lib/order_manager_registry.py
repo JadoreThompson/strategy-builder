@@ -1,9 +1,19 @@
 from lib.enums import TradingPlatform
-from lib.order_managers import FuturesOrderManager, MT5OrderManager, SpotOrderManager
+from lib.order_managers import (
+    FuturesOrderManager,
+    MT5OrderManager,
+    SpotOrderManager,
+    DemoFuturesOrderManager,
+    DemoSpotOrderManager,
+)
 
 
 class OrderManagerRegistry:
-    _managers = {TradingPlatform.MT5: MT5OrderManager}
+    _managers = {
+        TradingPlatform.MT5: MT5OrderManager,
+        TradingPlatform.DEMO_FUTURES: DemoFuturesOrderManager,
+        TradingPlatform.DEMO_SPOT: DemoSpotOrderManager,
+    }
 
     @classmethod
     def get(

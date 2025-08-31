@@ -23,9 +23,8 @@ class FuturesOrderManager:
         stop_price: float | None = None,
         tp_price: float | None = None,
         sl_price: float | None = None,
-    ) -> str: ...
-
-    """Returns the position id"""
+    ) -> str:
+        """Returns the position id"""
 
     @abstractmethod
     def update_position(

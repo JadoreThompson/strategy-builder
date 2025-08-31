@@ -11,8 +11,12 @@ class Strategy:
     when a new tick comes in
     """
 
-    def __init__(self, *, platform: TradingPlatform):
+    def __init__(
+        self, *, platform: TradingPlatform, instrument: str, pip_size: float = 0.0001
+    ):
         self._om = OrderManagerRegistry.get(platform)
+        self._instrument = instrument
+        self._pip_size = pip_size
 
     @abstractmethod
     def run(self, tick: Tick): ...

@@ -33,6 +33,7 @@ class Ticks(Base):
     tick_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid4
     )
+    instrument: Mapped[str] = mapped_column(String, nullable=False)
     last_price: Mapped[float] = mapped_column(Float, nullable=False)
     bid_price: Mapped[float] = mapped_column(Float, nullable=False)
     ask_price: Mapped[float] = mapped_column(Float, nullable=False)
