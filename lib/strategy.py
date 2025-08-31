@@ -16,3 +16,23 @@ class Strategy:
 
     @abstractmethod
     def run(self, tick: Tick): ...
+
+    def shutdown(self):
+        """
+        Contains any necessary shutdown logic. For example
+        closing all positions and / or orders.
+        """
+
+    def startup(self):
+        """
+        Contains necessary startup logic. For example
+        logging into platform, fetching previous information etc.
+        """
+        self._om.login()
+
+    def __enter__(self):
+        self.startup()
+        return self
+
+    def __exit__(self, exc_type, exc_value, tcb):
+        self.shutdown()
