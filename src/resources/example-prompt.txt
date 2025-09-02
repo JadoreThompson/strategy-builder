@@ -1,0 +1,540 @@
+Your task is to design a subclass to the strategy class called userstrategy. the details of the prompt are below and the available lib is also attached below. Feel free to override, extend and add all functionality necessary. If you need to fetch from the DB the ONLY table allowed to fetch from is the Ticks DB if you need prev tick data:
+
+Prompt:
+Build me a strategy that looks for a bos and an fvg when the price closes over the previous daily high on the 1m. vice versa for when price closes below the prvious daily low
+
+Lib
+
+
+// core\enums.py (L1-L12)
+from enum import Enum
+
+
+class Side(Enum):
+    ASK = 0
+    BID = 1
+
+
+class OrderType(Enum):
+    MARKET = 0
+    LIMIT = 0
+    STOP =0
+
+// db_models.py (L13-L116)
+from datetime import datetime
+from uuid import uuid4
+
+from sqlalchemy import UUID, DateTime, Float, String, ForeignKey, Integer
+from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
+
+from utils import get_datetime
+
+
+class Base(DeclarativeBase): ...
+
+
+class Users(Base):
+    __tablename__ = "users"
+
+    user_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String, nullable=False)
+
+    strategies: Mapped[list["Strategies"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    positions: Mapped[list["Positions"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Ticks(Base):
+    __tablename__ = "ticks"
+
+    tick_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    instrument: Mapped[str] = mapped_column(String, nullable=False)
+    last_price: Mapped[float] = mapped_column(Float, nullable=False)
+    bid_price: Mapped[float] = mapped_column(Float, nullable=False)
+    ask_price: Mapped[float] = mapped_column(Float, nullable=False)
+    time: Mapped[int] = mapped_column(Integer, nullable=False)  # Unix Epoch seconds
+
+
+class Strategies(Base):
+    __tablename__ = "strategies"
+
+    strategy_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=get_datetime
+    )
+
+    # Relationships
+    user: Mapped["Users"] = relationship(back_populates="strategies")
+    versions: Mapped[list["StrategyVersions"]] = relationship(
+        back_populates="strategy", cascade="all, delete-orphan"
+    )
+
+
+class StrategyVersions(Base):
+    __tablename__ = "strategy_versions"
+
+    version_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    strategy_id: Mapped[UUID] = mapped_column(
+        ForeignKey("strategies.strategy_id"), nullable=False
+    )
+    code: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=get_datetime
+    )
+
+    # Relationship
+    strategy: Mapped["Strategies"] = relationship(back_populates="versions")
+    positions: Mapped[list["Positions"]] = relationship(
+        back_populates="strategy_versions", cascade="all, delete-orphan"
+    )
+
+
+class Positions(Base):
+    __tablename__ = "positions"
+
+    position_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("strategies_versions.version_id"), nullable=False
+    )
+    size: Mapped[float] = mapped_column(Float, nullable=False)  # contracts/shares
+    entry_price: Mapped[float] = mapped_column(Float, nullable=False)
+    timestamp: Mapped[int] = mapped_column(
+        Integer, nullable=False
+    )  # Unix Epoch seconds
+
+    # Relationships
+    user: Mapped["Users"] = relationship(back_populates="positions")
+    strategy_versions: Mapped["StrategyVersions"] = relationship(
+        back_populates="positions"
+    )
+
+
+// lib\__init__.py (L117-L118)
+from .enums import TradingPlatform
+from .strategy import Strategy
+
+// lib\enums.py (L119-L125)
+from enum import Enum
+
+
+class TradingPlatform(Enum):
+    DEMO_FUTURES = 0
+    DEMO_SPOT = 1
+    MT5 = 2
+
+// lib\indicators\__init__.py (L126-L128)
+from .bos import bearish_bos
+from .fvg import fvg
+
+
+// lib\indicators\bos.py (L129-L242)
+from lib.typing import OHLC, BullishBOS, BearishBOS
+
+
+def bullish_bos(candles: tuple[OHLC, ...]) -> BullishBOS:
+    """
+    Detect the latest bullish Break of Structure (BOS) in OHLC candles.
+
+    Args:
+        candles (tuple[OHLC, ...]): Sequence of OHLC candles.
+
+    Returns:
+        BullishBOS: Contains:
+            - type (str): 'bullish'
+            - present (bool): BOS occurred?
+            - first_low_idx (int | None): Index of first swing low.
+            - high_idx (int | None): Index of swing high.
+            - second_low_idx (int | None): Index of second swing low.
+            - breakout_idx (int | None): Index of candle breaking the high.
+    """
+    n = len(candles)
+    first_low, high, second_low = None, None, None
+    first_low_idx, high_idx, second_low_idx = None, None, None
+
+    for i in range(n - 2, 0, -1):
+        first, second, third = candles[i - 1], candles[i], candles[i + 1]
+
+        if first.low >= second.low <= third.low:
+            second_low = second.low
+            second_low_idx = i
+            first_low_idx, high_idx = None, None
+            first_low, high = None, None
+        elif high is None and first.high <= second.high >= third.high:
+            high = second.high
+            high_idx = i
+        elif first_low is None and first.low >= second.low <= third.low:
+            first_low = second.low
+            first_low_idx = i
+            break
+
+    present = False
+    breakout_idx = None
+    if first_low is not None and high is not None and second_low is not None:
+        for i in range(second_low_idx, n):
+            candle = candles[i]
+            if candle.open < high and candle.close > high:
+                present = True
+                breakout_idx = i
+                break
+
+    return BullishBOS(
+        type="bullish",
+        present=present,
+        first_low_idx=first_low_idx,
+        high_idx=high_idx,
+        second_low_idx=second_low_idx,
+        breakout_idx=breakout_idx,
+    )
+
+
+def bearish_bos(candles: tuple[OHLC, ...]) -> BearishBOS:
+    """
+    Detect the latest bearish Break of Structure (BOS) in OHLC candles.
+
+    Args:
+        candles (tuple[OHLC, ...]): Sequence of OHLC candles.
+
+    Returns:
+        BearishBOS: Contains:
+            - type (str): 'bearish'
+            - present (bool): BOS occurred?
+            - first_high_idx (int | None): Index of first swing high.
+            - low_idx (int | None): Index of swing low.
+            - second_high_idx (int | None): Index of second swing high.
+            - breakout_idx (int | None): Index of candle breaking the low.
+    """
+    n = len(candles)
+    first_high, low, second_high = None, None, None
+    first_high_idx, low_idx, second_high_idx = None, None, None
+
+    for i in range(n - 2, 0, -1):
+        first, second, third = candles[i - 1], candles[i], candles[i + 1]
+
+        if second_high is None and first.high <= second.high >= third.high:
+            second_high = second.high
+            second_high_idx = i
+            first_high_idx, low_idx = None, None
+            first_high, low = None, None
+        elif low is None and first.low >= second.low <= third.low:
+            low = second.low
+            low_idx = i
+        elif first_high is None and first.high <= second.high >= third.high:
+            first_high = second.high
+            first_high_idx = i
+            break
+
+    present = False
+    breakout_idx = None
+    if first_high is not None and low is not None and second_high is not None:
+        for i in range(second_high_idx, n):
+            candle = candles[i]
+            if candle.open > low and candle.close < low:
+                present = True
+                breakout_idx = i
+                break
+
+    return BearishBOS(
+        type="bearish",
+        present=present,
+        first_high_idx=first_high_idx,
+        low_idx=low_idx,
+        second_high_idx=second_high_idx,
+        breakout_idx=breakout_idx,
+    )
+
+
+// lib\indicators\fvg.py (L243-L256)
+from lib.typing import FVG, OHLC
+
+
+def fvg(candles: list[OHLC]) -> FVG | None:
+    if len(candles) != 3:
+        raise ValueError("Must provide 3 candles.")
+
+    first, last = candles[0], candles[2]
+
+    if first.low > last.high:
+        return FVG(above=first.low, below=last.high)
+    if first.high < last.low:
+        return FVG(above=last.low, below=first.high)
+
+
+// lib\markets\__init__.py (L257-L259)
+from .market import Market
+from .mt5_market import mt5_market
+
+
+// lib\markets\market.py (L260-L269)
+from abc import abstractmethod
+
+from lib.typing import Tick
+
+
+class Market:
+    @abstractmethod
+    @classmethod
+    def get_tick(cls, instrument: str) -> Tick: ...
+
+
+// lib\markets\mt5_market.py (L270-L275)
+from lib.typing import Tick
+
+
+class MT5Market:
+    @classmethod
+    def get_tick(cls, instrument: str) -> Tick: ...
+
+// lib\order_manager_registry.py (L276-L300)
+from lib.enums import TradingPlatform
+from lib.order_managers import (
+    FuturesOrderManager,
+    MT5OrderManager,
+    SpotOrderManager,
+    DemoFuturesOrderManager,
+    DemoSpotOrderManager,
+)
+
+
+class OrderManagerRegistry:
+    _managers = {
+        TradingPlatform.MT5: MT5OrderManager,
+        TradingPlatform.DEMO_FUTURES: DemoFuturesOrderManager,
+        TradingPlatform.DEMO_SPOT: DemoSpotOrderManager,
+    }
+
+    @classmethod
+    def get(
+        cls, platform: TradingPlatform
+    ) -> SpotOrderManager | FuturesOrderManager | None:
+        manager = cls._managers.get(platform)
+        if manager:
+            return manager()
+
+
+// lib\order_managers\__init__.py (L301-L305)
+from .demo_spot_order_manager import DemoSpotOrderManager
+from .demo_futures_order_manager import DemoFuturesOrderManager
+from .futures_order_manager import FuturesOrderManager
+from .mt5_order_manager import MT5OrderManager
+from .spot_order_manager import SpotOrderManager
+
+// lib\order_managers\demo_futures_order_manager.py (L306-L332)
+from uuid import uuid4
+from .futures_order_manager import FuturesOrderManager
+
+
+class DemoFuturesOrderManager(FuturesOrderManager):
+    def open_position(
+        self,
+        *,
+        instrument,
+        side,
+        order_type,
+        amount,
+        price=None,
+        limit_price=None,
+        stop_price=None,
+        tp_price=None,
+        sl_price=None,
+    ):
+        pos = locals()
+        pos.pop("self")
+
+        pos_id = uuid4()
+        self._positions[pos_id] = pos
+
+    def close_position(self, position_id):
+        self._positions.pop(position_id, None)
+
+
+// lib\order_managers\demo_spot_order_manager.py (L333-L337)
+from .spot_order_manager import SpotOrderManager
+
+
+class DemoSpotOrderManager(SpotOrderManager): ...
+
+
+// lib\order_managers\futures_order_manager.py (L338-L385)
+from abc import abstractmethod
+
+from core.enums import OrderType, Side
+
+
+class FuturesOrderManager:
+    def __init__(self):
+        self._positions = {}
+
+    @abstractmethod
+    def login(self) -> bool: ...
+
+    @abstractmethod
+    def open_position(
+        self,
+        *,
+        instrument: str,
+        side: Side,
+        order_type: OrderType,
+        amount: float,
+        price: float | None = None,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+        tp_price: float | None = None,
+        sl_price: float | None = None,
+    ) -> str:
+        """Returns the position id"""
+
+    @abstractmethod
+    def update_position(
+        self,
+        *,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+        tp_price: float | None = None,
+        sl_price: float | None = None,
+    ) -> bool: ...
+    """Returns whether or not the call was successfull"""
+
+    @abstractmethod
+    def close_position(self, position_id: str): ...
+
+    @abstractmethod
+    def cancel_position(self, position_id: str): ...
+
+    @abstractmethod
+    def cancel_all_position(self): ...
+
+
+// lib\order_managers\mt5_order_manager.py (L386-L391)
+from .futures_order_manager import FuturesOrderManager
+
+
+class MT5OrderManager(FuturesOrderManager):
+    pass
+
+
+// lib\order_managers\spot_order_manager.py (L392-L434)
+from abc import abstractmethod
+
+from core.enums import OrderType, Side
+
+
+class SpotOrderManager:
+    def __init__(self):
+        self._orders = {}
+
+    @abstractmethod
+    def login(self) -> bool: ...
+
+    @abstractmethod
+    def place_order(
+        self,
+        *,
+        instrument: str,
+        side: Side,
+        order_type: OrderType,
+        amount: float,
+        price: float | None = None,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+    ) -> str: ...
+
+    """Returns the order Id"""
+
+    @abstractmethod
+    def update_order(
+        self,
+        *,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+    ) -> bool: ...
+
+    """Returns whether or not the call was successfull"""
+
+    @abstractmethod
+    def cancel_order(self, order_id: str): ...
+
+    @abstractmethod
+    def cancel_all_orders(self): ...
+
+
+// lib\strategy.py (L435-L477)
+from abc import abstractmethod
+
+from lib.enums import TradingPlatform
+from lib.order_manager_registry import OrderManagerRegistry
+from lib.typing import Tick
+
+
+class Strategy:
+    """
+    Base class for all startegies. The run method is called
+    when a new tick comes in
+    """
+
+    def __init__(
+        self, *, platform: TradingPlatform, instrument: str, pip_size: float = 0.0001
+    ):
+        self._om = OrderManagerRegistry.get(platform)
+        self._instrument = instrument
+        self._pip_size = pip_size
+
+    @abstractmethod
+    def run(self, tick: Tick): ...
+
+    def shutdown(self):
+        """
+        Contains any necessary shutdown logic. For example
+        closing all positions and / or orders.
+        """
+
+    def startup(self):
+        """
+        Contains necessary startup logic. For example
+        logging into platform, fetching previous information etc.
+        """
+        self._om.login()
+
+    def __enter__(self):
+        self.startup()
+        return self
+
+    def __exit__(self, exc_type, exc_value, tcb):
+        self.shutdown()
+
+
+// lib\typing.py (L478-L496)
+from collections import namedtuple
+from typing import Literal
+
+
+BullishBearish = Literal["bullish", "bearish"]
+
+
+Tick = namedtuple("Tick", ("last", "bid", "ask", 'time'))
+OHLC = namedtuple("OHLC", ("open", "high", "low", "close", "time"))
+FVG = namedtuple("FVG", ("above", "below"))
+BullishBOS = namedtuple(
+    "BullishBOS",
+    ("type", "present", "first_low_idx", "high_idx", "second_low_idx", "breakout_idx"),
+)
+BearishBOS = namedtuple(
+    "BearishBOS",
+    ("type", "present", "first_high_idx", "low_idx", "second_high_idx", "breakout_idx"),
+)
