@@ -1,9 +1,10 @@
+import heapq
 import logging
+from decimal import Decimal
 from uuid import uuid4
 
-from core.enums import OrderType, PositionStatus, Side, StrategyType
-from lib.typing import Position
-from lib.utils import calc_price_change
+from core.enums import OrderType, PositionStatus, Side
+from lib.typing import Position, Tick
 from utils import get_datetime
 from .futures_order_manager import FuturesOrderManager
 
@@ -11,17 +12,20 @@ from .futures_order_manager import FuturesOrderManager
 logger = logging.getLogger(__name__)
 
 
-# TODO: Fix PNL issue
 class DemoFuturesOrderManager(FuturesOrderManager):
-    def __init__(self, starting_balance: float | None = None):
+    def __init__(self, starting_balance: float = 100_000.0, leverage: int = 10):
         super().__init__()
+
         if starting_balance is None:
             logger.warning("No starting balance provided")
-        self._balance = starting_balance
+
+        self._leverage = leverage
+        self._balance = Decimal(str(starting_balance))
+        self._equity = Decimal("0.0")
+        self._margin = Decimal("0.0")
+        self._free_margin = self._balance
 
     def login(self) -> bool:
-        if self._balance is None:
-            raise ValueError("Starting balance not provided.")
         return True
 
     def open_position(
@@ -30,13 +34,16 @@ class DemoFuturesOrderManager(FuturesOrderManager):
         instrument: str,
         side: Side,
         order_type: OrderType,
-        amount: float,
-        price: float | None = None,
-        limit_price: float | None = None,
-        stop_price: float | None = None,
-        tp_price: float | None = None,
-        sl_price: float | None = None,
-    ) -> str:
+        amount: Decimal,
+        price: Decimal | None = None,
+        limit_price: Decimal | None = None,
+        stop_price: Decimal | None = None,
+        tp_price: Decimal | None = None,
+        sl_price: Decimal | None = None,
+    ) -> str | None:
+        if not self._perform_pretrade_risk(amount):
+            return None
+
         pos_id = str(uuid4())
         pos = Position(
             id=pos_id,
@@ -56,17 +63,16 @@ class DemoFuturesOrderManager(FuturesOrderManager):
             ),
         )
         self._positions[pos_id] = pos
-        self._balance -= amount
         return pos_id
 
     def update_position(
         self,
         *,
         position_id: str,
-        limit_price: float | None = None,
-        stop_price: float | None = None,
-        tp_price: float | None = None,
-        sl_price: float | None = None,
+        limit_price: Decimal | None = None,
+        stop_price: Decimal | None = None,
+        tp_price: Decimal | None = None,
+        sl_price: Decimal | None = None,
     ) -> bool:
         pos = self._positions.get(position_id)
         if not pos:
@@ -87,7 +93,7 @@ class DemoFuturesOrderManager(FuturesOrderManager):
         self._positions[position_id] = updated
         return True
 
-    def close_position(self, position_id: str, price: float, amount: float) -> bool:
+    def close_position(self, position_id: str, price: float, amount: Decimal) -> bool:
         """Simulate position close (remove from active positions)."""
         pos = self._positions.pop(position_id, None)
         if pos is None:
@@ -97,32 +103,32 @@ class DemoFuturesOrderManager(FuturesOrderManager):
             self._positions[pos.id] = pos
             return False
 
-        open_price = pos.price or pos.limit_price or pos.stop_price
-        k = -1 if pos.side == Side.ASK else 1
-        price_change = calc_price_change(open_price, price)
-        pos.unrealised_pnl = k * pos.current_amount * price_change
+        pos.unrealised_pnl = self._calc_upl(pos, price, pos.current_amount)
+        self._margin -= amount
 
         if amount == pos.current_amount:
+            self._equity -= pos.unrealised_pnl
             pos.current_amount = 0
+
             self._balance += pos.unrealised_pnl
             pos.realised_pnl += pos.unrealised_pnl
             pos.unrealised_pnl = 0.0
+
             pos.close_price = price
             pos.closed_at = get_datetime()
             pos.status = PositionStatus.CLOSED
         else:
-            pos.current_amount -= amount
-            pnl = k * amount * price_change
+            pnl = self._calc_upl(pos, price, amount)
             self._balance += pnl
-            pos.realised_pnl += pnl
+            self._equity -= pnl
 
-            if pos.unrealised_pnl < 0.0:
-                pos.unrealised_pnl += pnl
-            else:
-                pos.unrealised_pnl -= pnl
+            pos.realised_pnl += pnl
+            pos.current_amount -= amount
+            pos.unrealised_pnl = self._calc_upl(pos, price, pos.current_amount)
 
             self._positions[pos.id] = pos
 
+        self._free_margin = self._equity - self._margin
         return True
 
     def cancel_position(self, position_id: str) -> bool:
@@ -130,10 +136,86 @@ class DemoFuturesOrderManager(FuturesOrderManager):
         if (
             pos := self._positions.get(position_id)
         ) and pos.status == PositionStatus.PENDING:
-            return bool(self._positions.pop(pos.id))
+            pos = self._positions.pop(pos.id)
+            self._margin -= pos.current_amount
+            self._free_margin = self._equity - self._margin
+            return True
+
+        return False
 
     def cancel_all_positions(self) -> None:
         """Remove all active positions."""
         for pos in list(self._positions.values()):
             if pos.status == PositionStatus.PENDING:
                 self._positions.pop(pos.id)
+                self._margin -= pos.current_amount
+                self._free_margin = self._equity - self._margin
+
+    def perform_risk_checks(self, tick: Tick) -> bool:
+        """
+        Updates free margin and performs margin call if
+        necessary.
+
+        Args:
+            tick (Tick)
+        Returns:
+            bool: True if there's remaining free margin.
+        """
+        zero = Decimal("0.0")
+        new_equity = zero
+
+        for pos in self._positions.values():
+            upnl = self._calc_upl(pos, tick.last, pos.current_amount)
+            new_equity += upnl
+
+        self._equity = self._balance + new_equity
+        self._free_margin = self._equity - self._margin
+
+        # Closing positions
+        if self._free_margin <= zero:
+            positions: list[tuple[float, Position]] = []
+            for pos in self._positions.values():
+                heapq.heappush(positions, (pos.current_amount, pos))
+
+            while self._free_margin <= zero and positions:
+                current_amount, pos = positions.pop()
+
+                self._margin -= current_amount
+                self._equity -= pos.unrealised_pnl
+                self._free_margin = self._equity - self._margin
+
+                pos.realised_pnl += pos.unrealised_pnl
+                self._balance += pos.realised_pnl
+                pos.unrealised_pnl = zero
+
+                pos.current_amount = zero
+                pos.close_price = tick.last
+                pos.closed_at = get_datetime()
+                pos.status = PositionStatus.CLOSED
+                self._positions.pop(pos.id)
+
+        return self._free_margin > zero
+
+    def _perform_pretrade_risk(self, amount: float) -> bool:
+        amount = Decimal(str(amount))
+        if self._free_margin < amount * self._leverage:
+            return False
+
+        self._margin += amount
+        self._free_margin -= amount
+        return True
+
+    def _calc_upl(self, pos: Position, close_price: Decimal, amount: Decimal):
+        total_amount = Decimal(str(amount * self._leverage))
+        open_price = pos.price or pos.limit_price or pos.stop_price
+
+        try:
+            if pos.side == Side.ASK:
+                pct = Decimal(str((open_price - close_price) / open_price))
+            else:
+                pct = Decimal(str((close_price - open_price) / open_price))
+        except ZeroDivisionError:
+            pct = Decimal("0.0")
+
+        upnl = pct * total_amount
+        return upnl

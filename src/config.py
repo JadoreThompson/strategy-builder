@@ -13,6 +13,11 @@ load_dotenv()
 PRODUCTION = False
 
 
+# Paths
+BASE_PATH = os.path.dirname(__file__)
+RESOURCES_PATH = os.path.join(BASE_PATH, "resources")
+
+
 # Auth
 COOKIE_ALIAS = "strat-builder-cookie"
 JWT_ALGO = "HS256"
@@ -39,3 +44,12 @@ handler.setFormatter(
     logging.Formatter("%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
 )
 logger.addHandler(handler)
+
+
+# Resources
+fpath = os.path.join(RESOURCES_PATH, "system-prompt.txt")
+if not os.path.exists(fpath):
+    SYSTEM_PROMPT = None
+    logger.warning(f"System prompt not found at {fpath}")
+else:
+    SYSTEM_PROMPT = open(fpath).read()

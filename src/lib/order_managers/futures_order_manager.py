@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from decimal import Decimal
 
 from core.enums import OrderType, Side
 from lib.typing import Position
@@ -18,29 +19,33 @@ class FuturesOrderManager:
         instrument: str,
         side: Side,
         order_type: OrderType,
-        amount: float,
-        price: float | None = None,
-        limit_price: float | None = None,
-        stop_price: float | None = None,
-        tp_price: float | None = None,
-        sl_price: float | None = None,
-    ) -> str:
-        """Returns the position id"""
+        amount: Decimal,
+        price: Decimal | None = None,
+        limit_price: Decimal | None = None,
+        stop_price: Decimal | None = None,
+        tp_price: Decimal | None = None,
+        sl_price: Decimal | None = None,
+    ) -> str | None:
+        """
+        Returns the position id or None if position 
+        couldn't be placed
+        """
 
     @abstractmethod
     def update_position(
         self,
         *,
-        limit_price: float | None = None,
-        stop_price: float | None = None,
-        tp_price: float | None = None,
-        sl_price: float | None = None,
+        position_id: str,
+        limit_price: Decimal | None = None,
+        stop_price: Decimal | None = None,
+        tp_price: Decimal | None = None,
+        sl_price: Decimal | None = None,
     ) -> bool: ...
 
     """Returns whether or not the call was successfull"""
 
     @abstractmethod
-    def close_position(self, position_id: str, price: float, quantity: float): ...
+    def close_position(self, position_id: str, price: float, amount: Decimal): ...
 
     @abstractmethod
     def cancel_position(self, position_id: str): ...
