@@ -5,6 +5,7 @@ from datetime import timedelta
 from urllib.parse import quote
 
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine
 
 
@@ -32,6 +33,9 @@ DB_NAME = os.getenv("DB_NAME")
 DB_ENGINE = create_async_engine(
     f"postgresql+asyncpg://{DB_USER_CREDS}@{DB_HOST_CREDS}/{DB_NAME}"
 )
+DB_ENGINE_SYNC = create_engine(
+    f"postgresql+psycopg2://{DB_USER_CREDS}@{DB_HOST_CREDS}/{DB_NAME}"
+)
 
 
 # Logging
@@ -52,4 +56,4 @@ if not os.path.exists(fpath):
     SYSTEM_PROMPT = None
     logger.warning(f"System prompt not found at {fpath}")
 else:
-    SYSTEM_PROMPT = open(fpath).read()
+    SYSTEM_PROMPT = open(fpath, "r").read()

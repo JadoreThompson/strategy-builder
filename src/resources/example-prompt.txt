@@ -1,13 +1,80 @@
 Your task is to design a subclass to the strategy class called userstrategy. the details of the prompt are below and the available lib is also attached below. Feel free to override, extend and add all functionality necessary. If you need to fetch from the DB the ONLY table allowed to fetch from is the Ticks DB if you need prev tick data:
 
 Prompt:
-Build me a strategy that looks for a bos and an fvg when the price closes over the previous daily high on the 1m. vice versa for when price closes below the prvious daily low
+Build me a strategy that longs whenever the price is greater than the prev price, shorts whenever price is lower than the previous price, never having more than 1 open position at a time.
 
-Lib
+Lib:
 
 
-// core\enums.py (L1-L12)
+// src\config.py (L1-L60)
+import logging
+import os
+import sys
+from datetime import timedelta
+from urllib.parse import quote
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine
+
+
+load_dotenv()
+
+PRODUCTION = False
+
+
+# Paths
+BASE_PATH = os.path.dirname(__file__)
+RESOURCES_PATH = os.path.join(BASE_PATH, "resources")
+
+
+# Auth
+COOKIE_ALIAS = "strat-builder-cookie"
+JWT_ALGO = "HS256"
+JWT_SECRET = os.getenv("COOKIE_SECRET", "secret")
+JWT_EXPIRY = timedelta(days=1000)
+
+
+# DB
+DB_HOST_CREDS = f"{os.getenv("DB_HOST", "localhost")}:{os.getenv("DB_PORT", 5432)}"
+DB_USER_CREDS = f"{os.getenv("DB_USER", "postgres")}:{quote(os.getenv("DB_PASSWORD"))}"
+DB_NAME = os.getenv("DB_NAME")
+DB_ENGINE = create_async_engine(
+    f"postgresql+asyncpg://{DB_USER_CREDS}@{DB_HOST_CREDS}/{DB_NAME}"
+)
+DB_ENGINE_SYNC = create_engine(
+    f"postgresql+psycopg2://{DB_USER_CREDS}@{DB_HOST_CREDS}/{DB_NAME}"
+)
+
+
+# Logging
+logging.basicConfig(format="%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(
+    logging.Formatter("%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
+)
+logger.addHandler(handler)
+
+
+# Resources
+fpath = os.path.join(RESOURCES_PATH, "system-prompt.txt")
+if not os.path.exists(fpath):
+    SYSTEM_PROMPT = None
+    logger.warning(f"System prompt not found at {fpath}")
+else:
+    SYSTEM_PROMPT = open(fpath, "r").read()
+
+
+// src\core\enums.py (L61-L84)
 from enum import Enum
+
+
+class StrategyType(Enum):
+    FUTURES = 0
+    SPOT = 1
 
 
 class Side(Enum):
@@ -16,12 +83,20 @@ class Side(Enum):
 
 
 class OrderType(Enum):
-    MARKET = 0
-    LIMIT = 0
-    STOP =0
+    MARKET = "market"
+    LIMIT = "limit"
+    STOP = "stop"
 
-// db_models.py (L13-L116)
+
+class PositionStatus(Enum):
+    PENDING = 0
+    OPEN = 1
+    CLOSED = 2
+
+
+// src\db_models.py (L85-L190)
 from datetime import datetime
+from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import UUID, DateTime, Float, String, ForeignKey, Integer
@@ -57,9 +132,9 @@ class Ticks(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid4
     )
     instrument: Mapped[str] = mapped_column(String, nullable=False)
-    last_price: Mapped[float] = mapped_column(Float, nullable=False)
-    bid_price: Mapped[float] = mapped_column(Float, nullable=False)
-    ask_price: Mapped[float] = mapped_column(Float, nullable=False)
+    last_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
+    bid_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
+    ask_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
     time: Mapped[int] = mapped_column(Integer, nullable=False)  # Unix Epoch seconds
 
 
@@ -88,6 +163,7 @@ class StrategyVersions(Base):
     version_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid4
     )
+    name: Mapped[str] = mapped_column(String, nullable=False)
     strategy_id: Mapped[UUID] = mapped_column(
         ForeignKey("strategies.strategy_id"), nullable=False
     )
@@ -113,8 +189,8 @@ class Positions(Base):
     version_id: Mapped[UUID] = mapped_column(
         ForeignKey("strategies_versions.version_id"), nullable=False
     )
-    size: Mapped[float] = mapped_column(Float, nullable=False)  # contracts/shares
-    entry_price: Mapped[float] = mapped_column(Float, nullable=False)
+    size: Mapped[Decimal] = mapped_column(Float, nullable=False)  # contracts/shares
+    entry_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
     timestamp: Mapped[int] = mapped_column(
         Integer, nullable=False
     )  # Unix Epoch seconds
@@ -126,25 +202,344 @@ class Positions(Base):
     )
 
 
-// lib\__init__.py (L117-L118)
+// src\lib\__init__.py (L191-L198)
+"""
+This package serves as a guard rail for the 
+models when developing the user's strategy.
+"""
+
+from .backtest import Backtest
 from .enums import TradingPlatform
 from .strategy import Strategy
 
-// lib\enums.py (L119-L125)
+// src\lib\backtest.py (L199-L274)
+from decimal import Decimal
+
+import pandas as pd
+
+from core.enums import OrderType, PositionStatus
+from lib.exchanges import BacktestFuturesExchange
+from lib.typing import BacktestResult
+from .order_managers import BacktestFuturesOrderManager
+from .strategy import Strategy
+
+
+class Backtest:
+    """
+    To be used to perform a backtest, evaluating
+    the performance of strategy on experimental data.
+    """
+
+    def __init__(
+        self,
+        strat: Strategy,
+        df_path: str | None = None,
+        df: pd.DataFrame | None = None,
+        starting_balance: float = 100_000,
+        leverage: int = 10,
+    ) -> None:
+        self._starting_balance = starting_balance
+        self._om = BacktestFuturesOrderManager(
+            starting_balance=starting_balance, leverage=leverage
+        )
+        self._om._exchange = BacktestFuturesExchange({}, df_path, df)
+        strat._om = self._om
+        self._strat = strat
+
+    def run(self) -> BacktestResult:
+        for tick in self._om._exchange.subscribe(""):
+            # Placing and closing trades
+            positions = list(self._om._positions.values())
+            for pos in positions:
+                if pos.status == PositionStatus.OPEN:
+                    if (pos.sl_price is not None and pos.sl_price == tick.last) or (
+                        pos.tp_price is not None and pos.tp_price == tick.last
+                    ):
+                        self._om.close_position(pos.id, tick.last, pos.current_amount)
+                elif pos.order_type in (OrderType.LIMIT, OrderType.STOP):
+                    pos.status = PositionStatus.OPEN
+
+            self._om.perform_risk_checks(tick)
+            self._strat.run(tick)
+
+        return self._get_backtest_result()
+
+    def _get_backtest_result(self):
+        closed_count = len(self._om._closed_positions)
+        total_trades = len(self._om._positions) + closed_count
+        win_rate = sum(
+            1
+            for pos in self._om._closed_positions
+            if pos.realised_pnl and pos.realised_pnl >= 0.0
+        )
+
+        total_pnl = Decimal("0.0")
+        for pos in self._om._closed_positions:
+            total_pnl += pos.realised_pnl
+
+        for pos in self._om.positions:
+            total_pnl += pos.realised_pnl
+
+        res = BacktestResult(
+            total_pnl=total_pnl,
+            starting_balance=self._starting_balance,
+            end_balance=self._om._balance,
+            total_trades=total_trades,
+            win_rate=win_rate,
+        )
+        return res
+
+
+// src\lib\enums.py (L275-L279)
 from enum import Enum
 
 
 class TradingPlatform(Enum):
-    DEMO_FUTURES = 0
-    DEMO_SPOT = 1
-    MT5 = 2
+    MT5 = 0
 
-// lib\indicators\__init__.py (L126-L128)
-from .bos import bearish_bos
+// src\lib\exchanges\__init__.py (L280-L284)
+from .backtest_futures_exchange import BacktestFuturesExchange
+from .exchange import Exchange
+from .futures_exchange import FuturesExchange
+from .mt5_exchange import MT5Exchange
+
+
+// src\lib\exchanges\backtest_futures_exchange.py (L285-L415)
+import logging
+from decimal import Decimal
+from typing import Generator
+from uuid import uuid4
+
+import pandas as pd
+
+from core.enums import OrderType, PositionStatus, Side
+from lib.typing import MODIFY_SENTINEL, Position, Tick
+from .futures_exchange import FuturesExchange
+
+
+logger = logging.getLogger(__name__)
+
+SENITNEL_POSITION = (
+    Position(
+        id="tmp",
+        instrument="tmp-instrument",
+        side=Side.ASK,
+        order_type=OrderType.MARKET,
+        starting_amount=Decimal("10"),
+        price=Decimal("100.0"),
+        status=PositionStatus.OPEN,
+    ),
+)
+
+
+class BacktestFuturesExchange(FuturesExchange):
+
+    def __init__(
+        self,
+        login_creds: dict,
+        df_path: str | None = None,
+        df: pd.DataFrame | None = None,
+    ):
+        super().__init__(login_creds)
+        self._df_path = df_path
+        self._df = df
+
+    def login(self) -> bool:
+        return True
+
+    def subscribe(self, instrument: str) -> Generator[Tick, None, None]:
+        """
+        Subscribes to price stream and yields the ticks
+
+        Args:
+            instrument (str): Instrument to subscribe to
+
+        Yields:
+            Generator[Tick, None, None]: Tick object
+        """
+        if self._df_path:
+            reader = pd.read_csv(self._df_path, chunksize=1000)
+            for chunk in reader:
+                for dt, row in chunk.iterrows():
+                    self._last_tick = Tick(last=row["close"], time=dt)
+                    yield self._last_tick
+        else:
+            for dt, row in self._df.iterrows():                    
+                self._last_tick = Tick(last=row["close"], time=dt)
+                yield self._last_tick
+
+    def open_position(
+        self,
+        instrument: str,
+        side: Side,
+        order_type: OrderType,
+        amount: Decimal,
+        price: Decimal | None = None,
+        limit_price: Decimal | None = None,
+        stop_price: Decimal | None = None,
+        tp_price: Decimal | None = None,
+        sl_price: Decimal | None = None,
+    ) -> Position | None:
+        return Position(
+            id=str(uuid4()),
+            instrument=instrument,
+            side=side,
+            order_type=order_type,
+            starting_amount=amount,
+            price=price,
+            limit_price=limit_price,
+            stop_price=stop_price,
+            tp_price=tp_price,
+            sl_price=sl_price,
+            status=(
+                PositionStatus.OPEN
+                if order_type == OrderType.MARKET
+                else PositionStatus.PENDING
+            ),
+        )
+
+    def modify_position(
+        self,
+        position: Position,
+        limit_price: Decimal | None = MODIFY_SENTINEL,
+        stop_price: Decimal | None = MODIFY_SENTINEL,
+        tp_price: Decimal | None = MODIFY_SENTINEL,
+        sl_price: Decimal | None = MODIFY_SENTINEL,
+    ) -> tuple[bool, Position]:
+        updated = Position(
+            id=position.id,
+            instrument=position.instrument,
+            side=position.side,
+            order_type=position.order_type,
+            starting_amount=position.starting_amount,
+            price=position.price,
+            limit_price=(
+                limit_price if limit_price is not None else position.limit_price
+            ),
+            stop_price=stop_price if stop_price is not None else position.stop_price,
+            tp_price=tp_price if tp_price is not None else position.tp_price,
+            sl_price=sl_price if sl_price is not None else position.sl_price,
+        )
+        return (True, updated)
+
+    def close_position(
+        self, position: Position, price: Decimal, amount: Decimal
+    ) -> tuple[bool, Position]:
+        return (True, SENITNEL_POSITION)
+
+    def close_all_positions(self) -> None:
+        return
+
+    def cancel_position(self, position_id: str) -> bool:
+        return True
+
+    def cancel_all_positions(self) -> None:
+        return
+
+
+// src\lib\exchanges\exchange.py (L416-L452)
+from abc import abstractmethod
+from typing import Generator
+
+from lib.typing import Tick
+
+
+class Exchange:
+    """ABC for all exchanges"""
+    def __init__(self, login_creds: dict):
+        self._last_tick: Tick | None = None
+        self._login_creds = login_creds
+
+    @abstractmethod
+    def login(self) -> bool:
+        """
+        Performs the requiring login process
+
+        Returns:
+            bool: True if successful login
+        """
+
+    @abstractmethod
+    def subscribe(self, instrument: str) -> Generator[Tick, None, None]:
+        """
+        Subscribes to price stream and yields the ticks
+
+        Args:
+            instrument (str): Instrument to subscribe to
+
+        Yields:
+            Generator[Tick, None, None]: Tick object
+        """
+
+    @property
+    def last_tick(self) -> Tick | None:
+        return self._last_tick
+
+
+// src\lib\exchanges\futures_exchange.py (L453-L501)
+from abc import abstractmethod
+from decimal import Decimal
+
+from core.enums import OrderType, Side
+from lib.typing import MODIFY_SENTINEL, Position
+from .exchange import Exchange
+
+
+class FuturesExchange(Exchange):
+    """Abstract base class for a futures trading exchange."""
+
+    @abstractmethod
+    def open_position(
+        self,
+        instrument: str,
+        side: Side,
+        order_type: OrderType,
+        amount: Decimal,
+        price: Decimal | None = None,
+        limit_price: Decimal | None = None,
+        stop_price: Decimal | None = None,
+        tp_price: Decimal | None = None,
+        sl_price: Decimal | None = None,
+    ) -> Position | None: ...
+
+    @abstractmethod
+    def modify_position(
+        self,
+        position: Position,
+        limit_price: Decimal | None = MODIFY_SENTINEL,
+        stop_price: Decimal | None = MODIFY_SENTINEL,
+        tp_price: Decimal | None = MODIFY_SENTINEL,
+        sl_price: Decimal | None = MODIFY_SENTINEL,
+    ) -> tuple[bool, Position]: ...
+
+    @abstractmethod
+    def close_position(
+        self, position: Position, price: Decimal, amount: Decimal
+    ) -> tuple[bool, Position]: ...
+
+    @abstractmethod
+    def close_all_positions(self) -> None: ...
+
+    @abstractmethod
+    def cancel_position(self, position_id: str) -> bool: ...
+
+    @abstractmethod
+    def cancel_all_positions(self) -> None: ...
+
+
+// src\lib\exchanges\mt5_exchange.py (L502-L506)
+from .futures_exchange import FuturesExchange
+
+
+class MT5Exchange(FuturesExchange):
+    pass
+
+// src\lib\indicators\__init__.py (L507-L509)
+from .bos import bearish_bos, bullish_bos
 from .fvg import fvg
 
 
-// lib\indicators\bos.py (L129-L242)
+// src\lib\indicators\bos.py (L510-L623)
 from lib.typing import OHLC, BullishBOS, BearishBOS
 
 
@@ -260,7 +655,7 @@ def bearish_bos(candles: tuple[OHLC, ...]) -> BearishBOS:
     )
 
 
-// lib\indicators\fvg.py (L243-L256)
+// src\lib\indicators\fvg.py (L624-L637)
 from lib.typing import FVG, OHLC
 
 
@@ -276,110 +671,259 @@ def fvg(candles: list[OHLC]) -> FVG | None:
         return FVG(above=last.low, below=first.high)
 
 
-// lib\markets\__init__.py (L257-L259)
-from .market import Market
-from .mt5_market import mt5_market
-
-
-// lib\markets\market.py (L260-L269)
-from abc import abstractmethod
-
-from lib.typing import Tick
-
-
-class Market:
-    @abstractmethod
-    @classmethod
-    def get_tick(cls, instrument: str) -> Tick: ...
-
-
-// lib\markets\mt5_market.py (L270-L275)
-from lib.typing import Tick
-
-
-class MT5Market:
-    @classmethod
-    def get_tick(cls, instrument: str) -> Tick: ...
-
-// lib\order_manager_registry.py (L276-L300)
+// src\lib\order_manager_registry.py (L638-L652)
 from lib.enums import TradingPlatform
-from lib.order_managers import (
-    FuturesOrderManager,
-    MT5OrderManager,
-    SpotOrderManager,
-    DemoFuturesOrderManager,
-    DemoSpotOrderManager,
-)
+from lib.order_managers import FuturesOrderManager, MT5OrderManager
 
 
 class OrderManagerRegistry:
     _managers = {
         TradingPlatform.MT5: MT5OrderManager,
-        TradingPlatform.DEMO_FUTURES: DemoFuturesOrderManager,
-        TradingPlatform.DEMO_SPOT: DemoSpotOrderManager,
     }
 
     @classmethod
-    def get(
-        cls, platform: TradingPlatform
-    ) -> SpotOrderManager | FuturesOrderManager | None:
+    def get(cls, platform: TradingPlatform) -> FuturesOrderManager | None:
         manager = cls._managers.get(platform)
         if manager:
             return manager()
 
 
-// lib\order_managers\__init__.py (L301-L305)
-from .demo_spot_order_manager import DemoSpotOrderManager
-from .demo_futures_order_manager import DemoFuturesOrderManager
+// src\lib\order_managers\__init__.py (L653-L656)
+from .backtest_futures_order_manager import BacktestFuturesOrderManager
 from .futures_order_manager import FuturesOrderManager
 from .mt5_order_manager import MT5OrderManager
-from .spot_order_manager import SpotOrderManager
 
-// lib\order_managers\demo_futures_order_manager.py (L306-L332)
-from uuid import uuid4
+
+// src\lib\order_managers\backtest_futures_order_manager.py (L657-L870)
+import heapq
+import logging
+from decimal import Decimal
+
+from core.enums import OrderType, PositionStatus, Side
+from lib.typing import MODIFY_SENTINEL, Position, Tick
+from utils import get_datetime
 from .futures_order_manager import FuturesOrderManager
 
 
-class DemoFuturesOrderManager(FuturesOrderManager):
+logger = logging.getLogger(__name__)
+
+
+class BacktestFuturesOrderManager(FuturesOrderManager):
+    def __init__(self, starting_balance: float = 100_000.0, leverage: int = 10):
+        super().__init__()
+
+        if starting_balance is None:
+            logger.warning("No starting balance provided")
+
+        self._leverage = leverage
+        self._balance = Decimal(str(starting_balance))
+        self._equity = Decimal("0.0")
+        self._margin = Decimal("0.0")
+        self._free_margin = self._balance
+
+        self._closed_positions: list[Position] = []
+
+    def login(self) -> bool:
+        return True
+
     def open_position(
         self,
-        *,
-        instrument,
-        side,
-        order_type,
-        amount,
-        price=None,
-        limit_price=None,
-        stop_price=None,
-        tp_price=None,
-        sl_price=None,
-    ):
-        pos = locals()
-        pos.pop("self")
+        instrument: str,
+        side: Side,
+        order_type: OrderType,
+        amount: Decimal,
+        price: float | None = None,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+        tp_price: float | None = None,
+        sl_price: float | None = None,
+    ) -> str | None:
+        if not self._perform_pretrade_risk(amount):
+            return None
 
-        pos_id = uuid4()
-        self._positions[pos_id] = pos
+        pos = self._exchange.open_position(
+            instrument,
+            side,
+            order_type,
+            amount,
+            price,
+            limit_price,
+            stop_price,
+            tp_price,
+            sl_price,
+        )
+        self._positions[pos.id] = pos
+        return pos.id
 
-    def close_position(self, position_id):
-        self._positions.pop(position_id, None)
+    def modify_position(
+        self,
+        position_id: str,
+        limit_price: float | None = MODIFY_SENTINEL,
+        stop_price: float | None = MODIFY_SENTINEL,
+        tp_price: float | None = MODIFY_SENTINEL,
+        sl_price: float | None = MODIFY_SENTINEL,
+    ) -> bool:
+        pos = self._positions.get(position_id)
+        if not pos:
+            return False
+
+        success, new_pos = self._exchange.modify_position(
+            pos, limit_price, stop_price, tp_price, sl_price
+        )
+
+        if success:
+            self._positions[position_id] = new_pos
+
+        return True
+
+    def close_position(self, position_id: str, price: float, amount: Decimal) -> bool:
+        """Simulate position close (remove from active positions)."""
+        pos = self._positions.pop(position_id, None)
+        if pos is None:
+            return False
+
+        if amount > pos.current_amount:
+            self._positions[pos.id] = pos
+            return False
+
+        pos.unrealised_pnl = self._calc_upl(pos, price, pos.current_amount)
+        self._margin -= amount
+
+        if amount == pos.current_amount:
+            self._equity -= pos.unrealised_pnl
+            pos.current_amount = 0
+
+            self._balance += pos.unrealised_pnl
+            pos.realised_pnl += pos.unrealised_pnl
+            pos.unrealised_pnl = 0.0
+
+            pos.close_price = price
+            pos.closed_at = get_datetime()
+            pos.status = PositionStatus.CLOSED
+            self._closed_positions.append(pos)
+        else:
+            pnl = self._calc_upl(pos, price, amount)
+            self._balance += pnl
+            self._equity -= pnl
+
+            pos.realised_pnl += pnl
+            pos.current_amount -= amount
+            pos.unrealised_pnl = self._calc_upl(pos, price, pos.current_amount)
+
+            self._positions[pos.id] = pos
+
+        self._free_margin = self._equity - self._margin
+        return True
+
+    def close_all_positions(self) -> None:
+        price = self._exchange.last_tick.last
+        for pos in list(self._positions.values()):
+            self.close_position(pos.id, price, pos.current_amount)
+
+    def cancel_position(self, position_id: str) -> bool:
+        """Alias for close in backtest context (cancel = remove before fill)."""
+        if (
+            pos := self._positions.get(position_id)
+        ) and pos.status == PositionStatus.PENDING:
+            pos = self._positions.pop(pos.id)
+            self._margin -= pos.current_amount
+            self._free_margin = self._equity - self._margin
+            return True
+
+        return False
+
+    def cancel_all_positions(self) -> None:
+        """Remove all active positions."""
+        for pos in list(self._positions.values()):
+            if pos.status == PositionStatus.PENDING:
+                self._positions.pop(pos.id)
+                self._margin -= pos.current_amount
+                self._free_margin = self._equity - self._margin
+
+    def perform_risk_checks(self, tick: Tick) -> bool:
+        """
+        Updates free margin and performs margin call if
+        necessary.
+
+        Args:
+            tick (Tick)
+        Returns:
+            bool: True if there's remaining free margin.
+        """
+        zero = Decimal("0.0")
+        new_equity = zero
+
+        for pos in self._positions.values():
+            upnl = self._calc_upl(pos, tick.last, pos.current_amount)
+            new_equity += upnl
+
+        self._equity = self._balance + new_equity
+        self._free_margin = self._equity - self._margin
+
+        # Closing positions
+        if self._free_margin <= zero:
+            positions: list[tuple[float, Position]] = []
+            for pos in self._positions.values():
+                heapq.heappush(positions, (pos.current_amount, pos))
+
+            while self._free_margin <= zero and positions:
+                current_amount, pos = positions.pop()
+
+                self._margin -= current_amount
+                self._equity -= pos.unrealised_pnl
+                self._free_margin = self._equity - self._margin
+
+                pos.realised_pnl += pos.unrealised_pnl
+                self._balance += pos.realised_pnl
+                pos.unrealised_pnl = zero
+
+                pos.current_amount = zero
+                pos.close_price = tick.last
+                pos.closed_at = get_datetime()
+                pos.status = PositionStatus.CLOSED
+                self._positions.pop(pos.id)
+
+        return self._free_margin > zero
+
+    def _perform_pretrade_risk(self, amount: float) -> bool:
+        amount = Decimal(str(amount))
+        if self._free_margin < amount * self._leverage:
+            return False
+
+        self._margin += amount
+        self._free_margin -= amount
+        return True
+
+    def _calc_upl(self, pos: Position, close_price: float, amount: float):
+        total_amount = Decimal(str(amount * self._leverage))
+        open_price = pos.price or pos.limit_price or pos.stop_price
+
+        try:
+            if pos.side == Side.ASK:
+                pct = (open_price - close_price) / open_price
+            else:
+                pct = (close_price - open_price) / open_price
+        except ZeroDivisionError:
+            pct = 0.0
+
+        upnl = Decimal(str(pct)) * total_amount
+        return upnl
 
 
-// lib\order_managers\demo_spot_order_manager.py (L333-L337)
-from .spot_order_manager import SpotOrderManager
-
-
-class DemoSpotOrderManager(SpotOrderManager): ...
-
-
-// lib\order_managers\futures_order_manager.py (L338-L385)
+// src\lib\order_managers\futures_order_manager.py (L871-L935)
 from abc import abstractmethod
+from decimal import Decimal
 
 from core.enums import OrderType, Side
+from lib.exchanges import FuturesExchange
+from lib.typing import MODIFY_SENTINEL, Position
 
 
 class FuturesOrderManager:
+    _exchange: FuturesExchange
+
     def __init__(self):
-        self._positions = {}
+        self._positions: dict[str, Position] = {}
 
     @abstractmethod
     def login(self) -> bool: ...
@@ -387,41 +931,53 @@ class FuturesOrderManager:
     @abstractmethod
     def open_position(
         self,
-        *,
         instrument: str,
         side: Side,
         order_type: OrderType,
-        amount: float,
+        amount: Decimal,
         price: float | None = None,
         limit_price: float | None = None,
         stop_price: float | None = None,
         tp_price: float | None = None,
         sl_price: float | None = None,
-    ) -> str:
-        """Returns the position id"""
+    ) -> str | None:
+        """
+        Returns the position id or None if position
+        couldn't be placed
+        """
 
     @abstractmethod
-    def update_position(
+    def modify_position(
         self,
-        *,
-        limit_price: float | None = None,
-        stop_price: float | None = None,
-        tp_price: float | None = None,
-        sl_price: float | None = None,
+        position_id: str,
+        limit_price: float | None = MODIFY_SENTINEL,
+        stop_price: float | None = MODIFY_SENTINEL,
+        tp_price: float | None = MODIFY_SENTINEL,
+        sl_price: float | None = MODIFY_SENTINEL,
     ) -> bool: ...
+
     """Returns whether or not the call was successfull"""
 
     @abstractmethod
-    def close_position(self, position_id: str): ...
+    def close_position(
+        self, position_id: str, price: float, amount: Decimal
+    ) -> bool: ...
 
     @abstractmethod
-    def cancel_position(self, position_id: str): ...
+    def close_all_positions(self) -> None: ...
 
     @abstractmethod
-    def cancel_all_position(self): ...
+    def cancel_position(self, position_id: str) -> bool: ...
+
+    @abstractmethod
+    def cancel_all_positions(self) -> None: ...
+
+    @property
+    def positions(self):
+        return self._positions.values()
 
 
-// lib\order_managers\mt5_order_manager.py (L386-L391)
+// src\lib\order_managers\mt5_order_manager.py (L936-L941)
 from .futures_order_manager import FuturesOrderManager
 
 
@@ -429,54 +985,10 @@ class MT5OrderManager(FuturesOrderManager):
     pass
 
 
-// lib\order_managers\spot_order_manager.py (L392-L434)
+// src\lib\strategy.py (L942-L994)
 from abc import abstractmethod
 
-from core.enums import OrderType, Side
-
-
-class SpotOrderManager:
-    def __init__(self):
-        self._orders = {}
-
-    @abstractmethod
-    def login(self) -> bool: ...
-
-    @abstractmethod
-    def place_order(
-        self,
-        *,
-        instrument: str,
-        side: Side,
-        order_type: OrderType,
-        amount: float,
-        price: float | None = None,
-        limit_price: float | None = None,
-        stop_price: float | None = None,
-    ) -> str: ...
-
-    """Returns the order Id"""
-
-    @abstractmethod
-    def update_order(
-        self,
-        *,
-        limit_price: float | None = None,
-        stop_price: float | None = None,
-    ) -> bool: ...
-
-    """Returns whether or not the call was successfull"""
-
-    @abstractmethod
-    def cancel_order(self, order_id: str): ...
-
-    @abstractmethod
-    def cancel_all_orders(self): ...
-
-
-// lib\strategy.py (L435-L477)
-from abc import abstractmethod
-
+from core.enums import StrategyType
 from lib.enums import TradingPlatform
 from lib.order_manager_registry import OrderManagerRegistry
 from lib.typing import Tick
@@ -489,10 +1001,15 @@ class Strategy:
     """
 
     def __init__(
-        self, *, platform: TradingPlatform, instrument: str, pip_size: float = 0.0001
+        self,
+        type: StrategyType,
+        platform: TradingPlatform,
+        instrument: str,
+        pip_size: float = 0.0001,
     ):
+        self._type = type
         self._om = OrderManagerRegistry.get(platform)
-        self._instrument = instrument
+        self._instrument = instrument.lower()
         self._pip_size = pip_size
 
     @abstractmethod
@@ -518,23 +1035,128 @@ class Strategy:
     def __exit__(self, exc_type, exc_value, tcb):
         self.shutdown()
 
+    @property
+    def type(self) -> StrategyType:
+        return self._type
 
-// lib\typing.py (L478-L496)
-from collections import namedtuple
-from typing import Literal
+
+// src\lib\typing.py (L995-L1076)
+from dataclasses import dataclass, field
+from datetime import datetime
+from decimal import Decimal
+from typing import Literal, NamedTuple
+
+from core.enums import OrderType, PositionStatus, Side
+from utils import get_datetime
 
 
 BullishBearish = Literal["bullish", "bearish"]
 
 
-Tick = namedtuple("Tick", ("last", "bid", "ask", 'time'))
-OHLC = namedtuple("OHLC", ("open", "high", "low", "close", "time"))
-FVG = namedtuple("FVG", ("above", "below"))
-BullishBOS = namedtuple(
-    "BullishBOS",
-    ("type", "present", "first_low_idx", "high_idx", "second_low_idx", "breakout_idx"),
-)
-BearishBOS = namedtuple(
-    "BearishBOS",
-    ("type", "present", "first_high_idx", "low_idx", "second_high_idx", "breakout_idx"),
-)
+class Tick(NamedTuple):
+    last: float
+    time: datetime
+
+
+class OHLC(NamedTuple):
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+
+
+class FVG(NamedTuple):
+    above: Decimal
+    below: Decimal
+
+
+class BullishBOS(NamedTuple):
+    type: str
+    present: bool
+    first_low_idx: int
+    high_idx: int
+    second_low_idx: int
+    breakout_idx: int
+
+
+class BearishBOS(NamedTuple):
+    type: str
+    present: bool
+    first_high_idx: int
+    low_idx: int
+    second_high_idx: int
+    breakout_idx: int
+
+
+# TODO: Add support for partials
+@dataclass
+class Position:
+    id: str
+    instrument: str
+    side: Side
+    order_type: OrderType
+    starting_amount: Decimal
+    current_amount: Decimal = None
+    price: float | None = None
+    limit_price: float | None = None
+    stop_price: float | None = None
+    tp_price: float | None = None
+    sl_price: float | None = None
+    realised_pnl: Decimal | None = Decimal("0.0")
+    unrealised_pnl: Decimal | None = Decimal("0.0")
+    status: PositionStatus = PositionStatus.PENDING
+    created_at: datetime | None = field(default_factory=get_datetime)
+    close_price: float | None = None
+    closed_at: datetime | None = None
+
+    def __post_init__(self):
+        self.current_amount = self.starting_amount
+
+
+@dataclass
+class BacktestResult:
+    total_pnl: Decimal
+    starting_balance: Decimal
+    end_balance: Decimal
+    total_trades: int
+    win_rate: float
+
+
+MODIFY_SENTINEL = '*'
+
+// src\utils.py (L1077-L1111)
+from contextlib import asynccontextmanager, contextmanager
+from datetime import UTC, datetime
+from typing import AsyncGenerator, Generator
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import sessionmaker, Session
+
+from config import DB_ENGINE
+
+
+smaker = sessionmaker(DB_ENGINE, class_=AsyncSession, autocommit=False, autoflush=False)
+smaker_sync = sessionmaker(DB_ENGINE, class_=Session, autocommit=False, autoflush=False)
+
+
+def get_datetime():
+    return datetime.now(UTC)
+
+
+@asynccontextmanager
+async def get_db_sess() -> AsyncGenerator[AsyncSession, None]:
+    async with smaker.begin() as s:
+        try:
+            yield s
+        except:
+            await s.rollback()
+            raise
+
+@contextmanager
+def get_db_sess_sync() -> Generator[Session, None, None]:
+    with smaker_sync.begin() as sess:
+        try:
+            yield sess
+        except:
+            sess.rollback()
+            raise

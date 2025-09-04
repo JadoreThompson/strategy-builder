@@ -1,14 +1,15 @@
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import UTC, datetime
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
 from config import DB_ENGINE
 
 
 smaker = sessionmaker(DB_ENGINE, class_=AsyncSession, autocommit=False, autoflush=False)
+smaker_sync = sessionmaker(DB_ENGINE, class_=Session, autocommit=False, autoflush=False)
 
 
 def get_datetime():
@@ -22,4 +23,13 @@ async def get_db_sess() -> AsyncGenerator[AsyncSession, None]:
             yield s
         except:
             await s.rollback()
+            raise
+
+@contextmanager
+def get_db_sess_sync() -> Generator[Session, None, None]:
+    with smaker_sync.begin() as sess:
+        try:
+            yield sess
+        except:
+            sess.rollback()
             raise

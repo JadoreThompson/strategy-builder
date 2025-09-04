@@ -11,7 +11,7 @@ BullishBearish = Literal["bullish", "bearish"]
 
 
 class Tick(NamedTuple):
-    last: Decimal
+    last: float
     time: datetime
 
 
@@ -54,16 +54,16 @@ class Position:
     order_type: OrderType
     starting_amount: Decimal
     current_amount: Decimal = None
-    price: Decimal | None = None
-    limit_price: Decimal | None = None
-    stop_price: Decimal | None = None
-    tp_price: Decimal | None = None
-    sl_price: Decimal | None = None
+    price: float | None = None
+    limit_price: float | None = None
+    stop_price: float | None = None
+    tp_price: float | None = None
+    sl_price: float | None = None
     realised_pnl: Decimal | None = Decimal("0.0")
     unrealised_pnl: Decimal | None = Decimal("0.0")
     status: PositionStatus = PositionStatus.PENDING
     created_at: datetime | None = field(default_factory=get_datetime)
-    close_price: Decimal | None = None
+    close_price: float | None = None
     closed_at: datetime | None = None
 
     def __post_init__(self):
@@ -77,3 +77,6 @@ class BacktestResult:
     end_balance: Decimal
     total_trades: int
     win_rate: float
+
+
+MODIFY_SENTINEL = '*'

@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import UUID, DateTime, Float, String, ForeignKey, Integer
@@ -34,9 +35,9 @@ class Ticks(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid4
     )
     instrument: Mapped[str] = mapped_column(String, nullable=False)
-    last_price: Mapped[float] = mapped_column(Float, nullable=False)
-    bid_price: Mapped[float] = mapped_column(Float, nullable=False)
-    ask_price: Mapped[float] = mapped_column(Float, nullable=False)
+    last_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
+    bid_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
+    ask_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
     time: Mapped[int] = mapped_column(Integer, nullable=False)  # Unix Epoch seconds
 
 
@@ -91,8 +92,8 @@ class Positions(Base):
     version_id: Mapped[UUID] = mapped_column(
         ForeignKey("strategies_versions.version_id"), nullable=False
     )
-    size: Mapped[float] = mapped_column(Float, nullable=False)  # contracts/shares
-    entry_price: Mapped[float] = mapped_column(Float, nullable=False)
+    size: Mapped[Decimal] = mapped_column(Float, nullable=False)  # contracts/shares
+    entry_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
     timestamp: Mapped[int] = mapped_column(
         Integer, nullable=False
     )  # Unix Epoch seconds

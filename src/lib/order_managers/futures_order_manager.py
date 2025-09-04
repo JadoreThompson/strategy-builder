@@ -2,10 +2,13 @@ from abc import abstractmethod
 from decimal import Decimal
 
 from core.enums import OrderType, Side
-from lib.typing import Position
+from lib.exchanges import FuturesExchange
+from lib.typing import MODIFY_SENTINEL, Position
 
 
 class FuturesOrderManager:
+    _exchange: FuturesExchange
+
     def __init__(self):
         self._positions: dict[str, Position] = {}
 
@@ -15,40 +18,47 @@ class FuturesOrderManager:
     @abstractmethod
     def open_position(
         self,
-        *,
         instrument: str,
         side: Side,
         order_type: OrderType,
         amount: Decimal,
-        price: Decimal | None = None,
-        limit_price: Decimal | None = None,
-        stop_price: Decimal | None = None,
-        tp_price: Decimal | None = None,
-        sl_price: Decimal | None = None,
+        price: float | None = None,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+        tp_price: float | None = None,
+        sl_price: float | None = None,
     ) -> str | None:
         """
-        Returns the position id or None if position 
+        Returns the position id or None if position
         couldn't be placed
         """
 
     @abstractmethod
-    def update_position(
+    def modify_position(
         self,
-        *,
         position_id: str,
-        limit_price: Decimal | None = None,
-        stop_price: Decimal | None = None,
-        tp_price: Decimal | None = None,
-        sl_price: Decimal | None = None,
+        limit_price: float | None = MODIFY_SENTINEL,
+        stop_price: float | None = MODIFY_SENTINEL,
+        tp_price: float | None = MODIFY_SENTINEL,
+        sl_price: float | None = MODIFY_SENTINEL,
     ) -> bool: ...
 
     """Returns whether or not the call was successfull"""
 
     @abstractmethod
-    def close_position(self, position_id: str, price: float, amount: Decimal): ...
+    def close_position(
+        self, position_id: str, price: float, amount: Decimal
+    ) -> bool: ...
 
     @abstractmethod
-    def cancel_position(self, position_id: str): ...
+    def close_all_positions(self) -> None: ...
 
     @abstractmethod
-    def cancel_all_positions(self): ...
+    def cancel_position(self, position_id: str) -> bool: ...
+
+    @abstractmethod
+    def cancel_all_positions(self) -> None: ...
+
+    @property
+    def positions(self):
+        return self._positions.values()

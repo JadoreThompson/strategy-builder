@@ -14,7 +14,6 @@ class Strategy:
 
     def __init__(
         self,
-        *,
         type: StrategyType,
         platform: TradingPlatform,
         instrument: str,
@@ -22,7 +21,7 @@ class Strategy:
     ):
         self._type = type
         self._om = OrderManagerRegistry.get(platform)
-        self._instrument = instrument
+        self._instrument = instrument.lower()
         self._pip_size = pip_size
 
     @abstractmethod
