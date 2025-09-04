@@ -164,8 +164,8 @@ class BacktestFuturesExchange(FuturesExchange):
                 return (False, position)
 
             if limit_price != MODIFY_SENTINEL:
-                if (side == Side.ASK and limit_price <= self._last_tick) or (
-                    side == Side.BID and limit_price >= self._last_tick
+                if (side == Side.ASK and limit_price <= self._last_tick.last) or (
+                    side == Side.BID and limit_price >= self._last_tick.last
                 ):
                     return (False, position)
 
@@ -176,8 +176,8 @@ class BacktestFuturesExchange(FuturesExchange):
                 return (False, position)
 
             if stop_price != MODIFY_SENTINEL:
-                if (side == Side.ASK and stop_price >= self._last_tick) or (
-                    side == Side.BID and stop_price <= self._last_tick
+                if (side == Side.ASK and stop_price >= self._last_tick.last) or (
+                    side == Side.BID and stop_price <= self._last_tick.last
                 ):
                     return (False, position)
 
