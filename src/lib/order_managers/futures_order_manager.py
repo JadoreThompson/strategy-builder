@@ -22,7 +22,6 @@ class FuturesOrderManager:
         side: Side,
         order_type: OrderType,
         amount: Decimal,
-        price: float | None = None,
         limit_price: float | None = None,
         stop_price: float | None = None,
         tp_price: float | None = None,
@@ -61,4 +60,4 @@ class FuturesOrderManager:
 
     @property
     def positions(self):
-        return self._positions.values()
+        return list(self._positions.values())

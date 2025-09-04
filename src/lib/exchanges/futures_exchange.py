@@ -16,21 +16,20 @@ class FuturesExchange(Exchange):
         side: Side,
         order_type: OrderType,
         amount: Decimal,
-        price: Decimal | None = None,
-        limit_price: Decimal | None = None,
-        stop_price: Decimal | None = None,
-        tp_price: Decimal | None = None,
-        sl_price: Decimal | None = None,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+        tp_price: float | None = None,
+        sl_price: float | None = None,
     ) -> Position | None: ...
 
     @abstractmethod
     def modify_position(
         self,
         position: Position,
-        limit_price: Decimal | None = MODIFY_SENTINEL,
-        stop_price: Decimal | None = MODIFY_SENTINEL,
-        tp_price: Decimal | None = MODIFY_SENTINEL,
-        sl_price: Decimal | None = MODIFY_SENTINEL,
+        limit_price: float | None = MODIFY_SENTINEL,
+        stop_price: float | None = MODIFY_SENTINEL,
+        tp_price: float | None = MODIFY_SENTINEL,
+        sl_price: float | None = MODIFY_SENTINEL,
     ) -> tuple[bool, Position]: ...
 
     @abstractmethod

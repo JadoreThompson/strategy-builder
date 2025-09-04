@@ -35,7 +35,6 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
         side: Side,
         order_type: OrderType,
         amount: Decimal,
-        price: float | None = None,
         limit_price: float | None = None,
         stop_price: float | None = None,
         tp_price: float | None = None,
@@ -49,7 +48,6 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
             side,
             order_type,
             amount,
-            price,
             limit_price,
             stop_price,
             tp_price,
@@ -79,8 +77,9 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
 
         return True
 
-    def close_position(self, position_id: str, price: float, amount: Decimal) -> bool:
+    def close_position(self, position_id: str, amount: Decimal) -> bool:
         """Simulate position close (remove from active positions)."""
+        price = self._exchange.last_tick.last
         pos = self._positions.pop(position_id, None)
         if pos is None:
             return False
@@ -119,9 +118,8 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
         return True
 
     def close_all_positions(self) -> None:
-        price = self._exchange.last_tick.last
         for pos in list(self._positions.values()):
-            self.close_position(pos.id, price, pos.current_amount)
+            self.close_position(pos.id, pos.current_amount)
 
     def cancel_position(self, position_id: str) -> bool:
         """Alias for close in backtest context (cancel = remove before fill)."""
@@ -131,6 +129,7 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
             pos = self._positions.pop(pos.id)
             self._margin -= pos.current_amount
             self._free_margin = self._equity - self._margin
+            pos.status = PositionStatus.CANCELLED
             return True
 
         return False
@@ -199,7 +198,12 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
 
     def _calc_upl(self, pos: Position, close_price: float, amount: float):
         total_amount = Decimal(str(amount * self._leverage))
-        open_price = pos.price or pos.limit_price or pos.stop_price
+        if pos.order_type == OrderType.MARKET:
+            open_price = pos.price
+        elif pos.order_type == OrderType.LIMIT:
+            open_price = pos.limit_price
+        elif pos.order_type == OrderType.STOP:
+            open_price = pos.stop_price
 
         try:
             if pos.side == Side.ASK:

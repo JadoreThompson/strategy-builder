@@ -23,7 +23,7 @@ class UserStrategy(Strategy):
         super().__init__(
             type=type, platform=platform, instrument=instrument, pip_size=pip_size
         )
-        self._last_price: Decimal | None = None
+        self._last_price: float | None = None
         self._placed = False
 
     def startup(self):
@@ -53,7 +53,6 @@ class UserStrategy(Strategy):
                 Side.BID,
                 OrderType.MARKET,
                 Decimal("10.0"),
-                tick.last,
                 tp_price=1.13008,
             )
             if success:
