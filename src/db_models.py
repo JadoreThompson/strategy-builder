@@ -90,7 +90,7 @@ class Positions(Base):
     )
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     version_id: Mapped[UUID] = mapped_column(
-        ForeignKey("strategies_versions.version_id"), nullable=False
+        ForeignKey("strategy_versions.version_id"), nullable=False
     )
     size: Mapped[Decimal] = mapped_column(Float, nullable=False)  # contracts/shares
     entry_price: Mapped[Decimal] = mapped_column(Float, nullable=False)

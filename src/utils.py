@@ -5,11 +5,11 @@ from typing import AsyncGenerator, Generator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker, Session
 
-from config import DB_ENGINE
+from config import DB_ENGINE, DB_ENGINE_SYNC
 
 
 smaker = sessionmaker(DB_ENGINE, class_=AsyncSession, autocommit=False, autoflush=False)
-smaker_sync = sessionmaker(DB_ENGINE, class_=Session, autocommit=False, autoflush=False)
+smaker_sync = sessionmaker(DB_ENGINE_SYNC, class_=Session, autocommit=False, autoflush=False)
 
 
 def get_datetime():

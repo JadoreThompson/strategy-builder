@@ -35,8 +35,7 @@ class Strategy:
 
     def startup(self):
         """
-        Contains necessary startup logic. For example
-        logging into platform, fetching previous information etc.
+        Pretrade logic to be ran before receiving ticks
         """
         self._om.login()
 

@@ -2,7 +2,8 @@
 __pycache__
 uv.lock
 .python-version
+
 alembic.ini
+.env
 
 misc
-.env

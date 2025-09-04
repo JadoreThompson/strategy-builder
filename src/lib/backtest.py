@@ -32,20 +32,23 @@ class Backtest:
         self._strat = strat
 
     def run(self) -> BacktestResult:
-        for tick in self._om._exchange.subscribe(""):
-            # Placing and closing trades
-            positions = list(self._om._positions.values())
-            for pos in positions:
-                if pos.status == PositionStatus.OPEN:
-                    if (pos.sl_price is not None and pos.sl_price == tick.last) or (
-                        pos.tp_price is not None and pos.tp_price == tick.last
-                    ):
-                        self._om.close_position(pos.id, tick.last, pos.current_amount)
-                elif pos.order_type in (OrderType.LIMIT, OrderType.STOP):
-                    pos.status = PositionStatus.OPEN
+        with self._strat:
+            for tick in self._om._exchange.subscribe(""):
+                # Placing and closing trades
+                positions = list(self._om._positions.values())
+                for pos in positions:
+                    if pos.status == PositionStatus.OPEN:
+                        if (pos.sl_price is not None and pos.sl_price == tick.last) or (
+                            pos.tp_price is not None and pos.tp_price == tick.last
+                        ):
+                            self._om.close_position(
+                                pos.id, tick.last, pos.current_amount
+                            )
+                    elif pos.order_type in (OrderType.LIMIT, OrderType.STOP):
+                        pos.status = PositionStatus.OPEN
 
-            self._om.perform_risk_checks(tick)
-            self._strat.run(tick)
+                self._om.perform_risk_checks(tick)
+                self._strat.run(tick)
 
         return self._get_backtest_result()
 

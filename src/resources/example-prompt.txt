@@ -1,11 +1,22 @@
-Your task is to design a subclass to the strategy class called userstrategy. the details of the prompt are below and the available lib is also attached below. Feel free to override, extend and add all functionality necessary. If you need to fetch from the DB the ONLY table allowed to fetch from is the Ticks DB if you need prev tick data:
+Your task is to develop a subclass to the Strategy named UserSrategy, following the 
+details of the prompt below. The details of the prompt detail the strategy to implement.
+
+Below there's a library provided with some core classes and methods that must be 
+interfaced with but feel free to override and implement as necesary. Along with that,
+an example of a prompt and an output UserStrategy class for said prompt with a
+subsequent example of a backtest module backtesting said class.
+
+All the code necessary must be contained within a single file which will be executed
+in the root folder so utilisation of full path imports is a must.
+
+The output should be no more than the UserStartegy class and all other necessary
+functions, variables etc that you choose to implement.
 
 Prompt:
-Build me a strategy that longs whenever the price is greater than the prev price, shorts whenever price is lower than the previous price, never having more than 1 open position at a time.
+Build a startegy that longs when the price is greater than the average of the last 3
+prices and vice versa for shorts
 
-Lib:
-
-
+Library:
 // src\config.py (L1-L60)
 import logging
 import os
@@ -187,7 +198,7 @@ class Positions(Base):
     )
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
     version_id: Mapped[UUID] = mapped_column(
-        ForeignKey("strategies_versions.version_id"), nullable=False
+        ForeignKey("strategy_versions.version_id"), nullable=False
     )
     size: Mapped[Decimal] = mapped_column(Float, nullable=False)  # contracts/shares
     entry_price: Mapped[Decimal] = mapped_column(Float, nullable=False)
@@ -212,7 +223,7 @@ from .backtest import Backtest
 from .enums import TradingPlatform
 from .strategy import Strategy
 
-// src\lib\backtest.py (L199-L274)
+// src\lib\backtest.py (L199-L277)
 from decimal import Decimal
 
 import pandas as pd
@@ -247,20 +258,23 @@ class Backtest:
         self._strat = strat
 
     def run(self) -> BacktestResult:
-        for tick in self._om._exchange.subscribe(""):
-            # Placing and closing trades
-            positions = list(self._om._positions.values())
-            for pos in positions:
-                if pos.status == PositionStatus.OPEN:
-                    if (pos.sl_price is not None and pos.sl_price == tick.last) or (
-                        pos.tp_price is not None and pos.tp_price == tick.last
-                    ):
-                        self._om.close_position(pos.id, tick.last, pos.current_amount)
-                elif pos.order_type in (OrderType.LIMIT, OrderType.STOP):
-                    pos.status = PositionStatus.OPEN
+        with self._strat:
+            for tick in self._om._exchange.subscribe(""):
+                # Placing and closing trades
+                positions = list(self._om._positions.values())
+                for pos in positions:
+                    if pos.status == PositionStatus.OPEN:
+                        if (pos.sl_price is not None and pos.sl_price == tick.last) or (
+                            pos.tp_price is not None and pos.tp_price == tick.last
+                        ):
+                            self._om.close_position(
+                                pos.id, tick.last, pos.current_amount
+                            )
+                    elif pos.order_type in (OrderType.LIMIT, OrderType.STOP):
+                        pos.status = PositionStatus.OPEN
 
-            self._om.perform_risk_checks(tick)
-            self._strat.run(tick)
+                self._om.perform_risk_checks(tick)
+                self._strat.run(tick)
 
         return self._get_backtest_result()
 
@@ -290,21 +304,21 @@ class Backtest:
         return res
 
 
-// src\lib\enums.py (L275-L279)
+// src\lib\enums.py (L278-L282)
 from enum import Enum
 
 
 class TradingPlatform(Enum):
     MT5 = 0
 
-// src\lib\exchanges\__init__.py (L280-L284)
+// src\lib\exchanges\__init__.py (L283-L287)
 from .backtest_futures_exchange import BacktestFuturesExchange
 from .exchange import Exchange
 from .futures_exchange import FuturesExchange
 from .mt5_exchange import MT5Exchange
 
 
-// src\lib\exchanges\backtest_futures_exchange.py (L285-L415)
+// src\lib\exchanges\backtest_futures_exchange.py (L288-L418)
 import logging
 from decimal import Decimal
 from typing import Generator
@@ -437,7 +451,7 @@ class BacktestFuturesExchange(FuturesExchange):
         return
 
 
-// src\lib\exchanges\exchange.py (L416-L452)
+// src\lib\exchanges\exchange.py (L419-L455)
 from abc import abstractmethod
 from typing import Generator
 
@@ -476,7 +490,7 @@ class Exchange:
         return self._last_tick
 
 
-// src\lib\exchanges\futures_exchange.py (L453-L501)
+// src\lib\exchanges\futures_exchange.py (L456-L504)
 from abc import abstractmethod
 from decimal import Decimal
 
@@ -527,19 +541,19 @@ class FuturesExchange(Exchange):
     def cancel_all_positions(self) -> None: ...
 
 
-// src\lib\exchanges\mt5_exchange.py (L502-L506)
+// src\lib\exchanges\mt5_exchange.py (L505-L509)
 from .futures_exchange import FuturesExchange
 
 
 class MT5Exchange(FuturesExchange):
     pass
 
-// src\lib\indicators\__init__.py (L507-L509)
+// src\lib\indicators\__init__.py (L510-L512)
 from .bos import bearish_bos, bullish_bos
 from .fvg import fvg
 
 
-// src\lib\indicators\bos.py (L510-L623)
+// src\lib\indicators\bos.py (L513-L626)
 from lib.typing import OHLC, BullishBOS, BearishBOS
 
 
@@ -655,7 +669,7 @@ def bearish_bos(candles: tuple[OHLC, ...]) -> BearishBOS:
     )
 
 
-// src\lib\indicators\fvg.py (L624-L637)
+// src\lib\indicators\fvg.py (L627-L640)
 from lib.typing import FVG, OHLC
 
 
@@ -671,7 +685,7 @@ def fvg(candles: list[OHLC]) -> FVG | None:
         return FVG(above=last.low, below=first.high)
 
 
-// src\lib\order_manager_registry.py (L638-L652)
+// src\lib\order_manager_registry.py (L641-L655)
 from lib.enums import TradingPlatform
 from lib.order_managers import FuturesOrderManager, MT5OrderManager
 
@@ -688,13 +702,13 @@ class OrderManagerRegistry:
             return manager()
 
 
-// src\lib\order_managers\__init__.py (L653-L656)
+// src\lib\order_managers\__init__.py (L656-L659)
 from .backtest_futures_order_manager import BacktestFuturesOrderManager
 from .futures_order_manager import FuturesOrderManager
 from .mt5_order_manager import MT5OrderManager
 
 
-// src\lib\order_managers\backtest_futures_order_manager.py (L657-L870)
+// src\lib\order_managers\backtest_futures_order_manager.py (L660-L873)
 import heapq
 import logging
 from decimal import Decimal
@@ -910,7 +924,7 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
         return upnl
 
 
-// src\lib\order_managers\futures_order_manager.py (L871-L935)
+// src\lib\order_managers\futures_order_manager.py (L874-L938)
 from abc import abstractmethod
 from decimal import Decimal
 
@@ -977,7 +991,7 @@ class FuturesOrderManager:
         return self._positions.values()
 
 
-// src\lib\order_managers\mt5_order_manager.py (L936-L941)
+// src\lib\order_managers\mt5_order_manager.py (L939-L944)
 from .futures_order_manager import FuturesOrderManager
 
 
@@ -985,7 +999,7 @@ class MT5OrderManager(FuturesOrderManager):
     pass
 
 
-// src\lib\strategy.py (L942-L994)
+// src\lib\strategy.py (L945-L996)
 from abc import abstractmethod
 
 from core.enums import StrategyType
@@ -1023,8 +1037,7 @@ class Strategy:
 
     def startup(self):
         """
-        Contains necessary startup logic. For example
-        logging into platform, fetching previous information etc.
+        Pretrade logic to be ran before receiving ticks
         """
         self._om.login()
 
@@ -1040,7 +1053,7 @@ class Strategy:
         return self._type
 
 
-// src\lib\typing.py (L995-L1076)
+// src\lib\typing.py (L997-L1078)
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -1124,7 +1137,7 @@ class BacktestResult:
 
 MODIFY_SENTINEL = '*'
 
-// src\utils.py (L1077-L1111)
+// src\utils.py (L1079-L1113)
 from contextlib import asynccontextmanager, contextmanager
 from datetime import UTC, datetime
 from typing import AsyncGenerator, Generator
@@ -1132,11 +1145,11 @@ from typing import AsyncGenerator, Generator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker, Session
 
-from config import DB_ENGINE
+from config import DB_ENGINE, DB_ENGINE_SYNC
 
 
 smaker = sessionmaker(DB_ENGINE, class_=AsyncSession, autocommit=False, autoflush=False)
-smaker_sync = sessionmaker(DB_ENGINE, class_=Session, autocommit=False, autoflush=False)
+smaker_sync = sessionmaker(DB_ENGINE_SYNC, class_=Session, autocommit=False, autoflush=False)
 
 
 def get_datetime():
@@ -1160,3 +1173,159 @@ def get_db_sess_sync() -> Generator[Session, None, None]:
         except:
             sess.rollback()
             raise
+
+
+
+Example prompt and output:
+
+Prompt:
+Build me a strategy that longs when price is greater than the previous and vice versa
+for shorts. Maintaining no more than 1 open position at a time.
+
+Output:
+from decimal import Decimal
+
+from sqlalchemy import select
+
+from core.enums import OrderType, Side, StrategyType
+from db_models import Ticks
+from lib import Backtest, Strategy, TradingPlatform
+from lib.typing import Tick
+from utils import get_db_sess_sync
+
+
+class UserStrategy(Strategy):
+    """
+    A simple strategy that longs when the current tick
+    price is lower than the previous and vice versa for shorts
+    """
+    def __init__(self, type, platform, instrument, pip_size=0.0001):
+        super().__init__(
+            type=type, platform=platform, instrument=instrument, pip_size=pip_size
+        )
+        self._last_price: Decimal | None = None
+        self._placed = False
+
+    def startup(self):
+        with get_db_sess_sync() as db_sess:
+            prev_tick = db_sess.scalar(
+                select(Ticks)
+                .where(Ticks.instrument == self._instrument)
+                .order_by(Ticks.time.desc())
+                .limit(1)
+            )
+
+        if prev_tick:
+            self._last_price = prev_tick.last_price
+
+    def shutdown(self):
+        self._om.cancel_all_positions()
+        self._om.close_all_positions()
+
+    def run(self, tick: Tick) -> None:
+        if self._last_price is None or self._om.positions:
+            self._last_price = tick.last
+            return
+
+        if tick.last < self._last_price:
+            success = self._om.open_position(
+                self._instrument,
+                Side.BID,
+                OrderType.MARKET,
+                Decimal("10.0"),
+                tick.last,
+                tp_price=1.13008,
+            )
+            if success:
+                self._placed = True
+        self._last_price = tick.last
+
+
+Example backtest with example output:
+"""
+An example of how backtests are run
+"""
+
+from decimal import Decimal
+
+from sqlalchemy import select
+
+from core.enums import OrderType, Side, StrategyType
+from db_models import Ticks
+from lib import Backtest, Strategy, TradingPlatform
+from lib.typing import Tick
+from utils import get_db_sess_sync
+
+
+class UserStrategy(Strategy):
+    """
+    A simple strategy that longs when the current tick
+    price is lower than the previous and vice versa for shorts
+    """
+    def __init__(self, type, platform, instrument, pip_size=0.0001):
+        super().__init__(
+            type=type, platform=platform, instrument=instrument, pip_size=pip_size
+        )
+        self._last_price: Decimal | None = None
+        self._placed = False
+
+    def startup(self):
+        with get_db_sess_sync() as db_sess:
+            prev_tick = db_sess.scalar(
+                select(Ticks)
+                .where(Ticks.instrument == self._instrument)
+                .order_by(Ticks.time.desc())
+                .limit(1)
+            )
+
+        if prev_tick:
+            self._last_price = prev_tick.last_price
+
+    def shutdown(self):
+        self._om.cancel_all_positions()
+        self._om.close_all_positions()
+
+    def run(self, tick: Tick) -> None:
+        if self._last_price is None or self._om.positions:
+            self._last_price = tick.last
+            return
+
+        if tick.last < self._last_price:
+            success = self._om.open_position(
+                self._instrument,
+                Side.BID,
+                OrderType.MARKET,
+                Decimal("10.0"),
+                tick.last,
+                tp_price=1.13008,
+            )
+            if success:
+                self._placed = True
+        self._last_price = tick.last
+
+
+def main():
+    import os
+    import pandas as pd    
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
+    from config import RESOURCES_PATH
+
+    def startup(*args, **kw):
+        nonlocal strat
+        if not strat._om.login():
+            raise ValueError("Unsuccessful login")
+
+    fp = os.path.join(RESOURCES_PATH, "price-data", "EURUSD1.csv")
+    eur_df = pd.read_csv(fp)
+    eur_df.set_index("datetime", inplace=True)
+
+    strat = UserStrategy(StrategyType.FUTURES, TradingPlatform.MT5, "EURUSD")
+    strat.startup = startup
+    bt = Backtest(strat, df=eur_df)
+    results = bt.run()
+    print(results)
+
+
+if __name__ == "__main__":
+    main()

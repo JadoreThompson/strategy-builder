@@ -1,18 +1,24 @@
-import os
+"""
+An example of how backtests are run
+"""
+
 from decimal import Decimal
 
-import pandas as pd
 from sqlalchemy import select
 
-from config import RESOURCES_PATH
 from core.enums import OrderType, Side, StrategyType
 from db_models import Ticks
-from lib import Backtest, Strategy, TradingPlatform
+from lib import Strategy, TradingPlatform
 from lib.typing import Tick
 from utils import get_db_sess_sync
 
 
 class UserStrategy(Strategy):
+    """
+    A simple strategy that longs when the current tick
+    price is lower than the previous and vice versa for shorts
+    """
+
     def __init__(self, type, platform, instrument, pip_size=0.0001):
         super().__init__(
             type=type, platform=platform, instrument=instrument, pip_size=pip_size
@@ -56,11 +62,25 @@ class UserStrategy(Strategy):
 
 
 def main():
+    import os
+    import pandas as pd
+    import sys
+
+    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
+    from config import RESOURCES_PATH
+    from lib import Backtest
+
+    def startup(*args, **kw):
+        nonlocal strat
+        if not strat._om.login():
+            raise ValueError("Unsuccessful login")
+
     fp = os.path.join(RESOURCES_PATH, "price-data", "EURUSD1.csv")
     eur_df = pd.read_csv(fp)
     eur_df.set_index("datetime", inplace=True)
 
     strat = UserStrategy(StrategyType.FUTURES, TradingPlatform.MT5, "EURUSD")
+    strat.startup = startup
     bt = Backtest(strat, df=eur_df)
     results = bt.run()
     print(results)
