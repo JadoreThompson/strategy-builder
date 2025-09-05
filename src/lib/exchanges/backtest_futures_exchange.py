@@ -72,20 +72,19 @@ class BacktestFuturesExchange(FuturesExchange):
         tp_price: float | None = None,
         sl_price: float | None = None,
     ) -> Position | None:
+        if self._last_tick is None:
+            return
 
         # Entry validation
         if order_type == OrderType.MARKET:
-            if self._last_tick is None:
-                return
             open_price = self._last_tick.last
 
         elif order_type == OrderType.LIMIT:
             if limit_price is None:
                 return
 
-            if self._last_tick and (
-                (side == Side.ASK and limit_price <= self._last_tick.last)
-                or (side == Side.BID and limit_price >= self._last_tick.last)
+            if (side == Side.ASK and limit_price <= self._last_tick.last) or (
+                side == Side.BID and limit_price >= self._last_tick.last
             ):
                 return
 
@@ -95,9 +94,8 @@ class BacktestFuturesExchange(FuturesExchange):
             if stop_price is None:
                 return
 
-            if self._last_tick and (
-                (side == Side.ASK and stop_price >= self._last_tick.last)
-                or (side == Side.BID and stop_price <= self._last_tick.last)
+            if (side == Side.ASK and stop_price >= self._last_tick.last) or (
+                side == Side.BID and stop_price <= self._last_tick.last
             ):
                 return
 

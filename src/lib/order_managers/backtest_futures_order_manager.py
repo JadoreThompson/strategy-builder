@@ -1,6 +1,7 @@
 import heapq
 import logging
 from decimal import Decimal
+from pprint import pprint
 
 from core.enums import OrderType, PositionStatus, Side
 from lib.typing import MODIFY_SENTINEL, Position, Tick
@@ -86,6 +87,9 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
 
         if amount > pos.current_amount:
             self._positions[pos.id] = pos
+            logger.error(
+                f"Invalid close amount {amount} is greater than position amount {pos.current_amount}"
+            )
             return False
 
         pos.unrealised_pnl = self._calc_upl(pos, price, pos.current_amount)
@@ -161,13 +165,13 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
 
         self._equity = self._balance + new_equity
         self._free_margin = self._equity - self._margin
-
+        
         # Closing positions
         if self._free_margin <= zero:
             positions: list[tuple[float, Position]] = []
             for pos in self._positions.values():
                 heapq.heappush(positions, (pos.current_amount, pos))
-
+            
             while self._free_margin <= zero and positions:
                 current_amount, pos = positions.pop()
 

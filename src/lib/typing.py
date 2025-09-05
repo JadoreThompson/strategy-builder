@@ -16,32 +16,23 @@ class Tick(NamedTuple):
 
 
 class OHLC(NamedTuple):
-    open: Decimal
-    high: Decimal
-    low: Decimal
-    close: Decimal
+    open: float
+    high: float
+    low: float
+    close: float
+    time: int
 
 
 class FVG(NamedTuple):
-    above: Decimal
-    below: Decimal
+    above: float
+    below: float
 
 
-class BullishBOS(NamedTuple):
-    type: str
+class MSS(NamedTuple):
+    type: BullishBearish
     present: bool
-    first_low_idx: int
-    high_idx: int
-    second_low_idx: int
-    breakout_idx: int
-
-
-class BearishBOS(NamedTuple):
-    type: str
-    present: bool
-    first_high_idx: int
-    low_idx: int
-    second_high_idx: int
+    swing_high_idx: int
+    swing_low_idx: int
     breakout_idx: int
 
 
@@ -79,4 +70,4 @@ class BacktestResult:
     win_rate: float
 
 
-MODIFY_SENTINEL = '*'
+MODIFY_SENTINEL = "*"

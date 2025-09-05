@@ -59,5 +59,5 @@ class FuturesOrderManager:
     def cancel_all_positions(self) -> None: ...
 
     @property
-    def positions(self):
-        return list(self._positions.values())
+    def positions(self) -> tuple[Position]:
+        return tuple(self._positions.values())
