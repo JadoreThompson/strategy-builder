@@ -39,7 +39,7 @@ DB_ENGINE_SYNC = create_engine(
 
 
 # Logging
-logging.basicConfig(format="%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
+logging.basicConfig(filename="app.log", format="%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 

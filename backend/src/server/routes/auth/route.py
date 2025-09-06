@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy import insert, select, and_
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db_models import Users
@@ -21,25 +21,25 @@ async def register(body: UserCreate, db_sess: AsyncSession = Depends(depends_db_
         )
 
     result = await db_sess.execute(
-        insert(Users).values(usernmae=body.username, password=body.password).returning(Users)
+        insert(Users).values(username=body.username, password=body.password).returning(Users.user_id)
     )
-    new_user = result.scalar_one()
+    user_id = result.scalar_one()
     await db_sess.commit()
 
-    return JWTService.set_cookie(new_user)
+    return JWTService.set_cookie(user_id)
 
 
 @route.post("/login")
 async def login(body: UserLogin, db_sess: AsyncSession = Depends(depends_db_sess)):
 
     res = await db_sess.execute(
-        select(Users).where(
+        select(Users.user_id).where(
             Users.password == body.password, Users.username == body.username
         )
     )
-    user = res.scalar_one_or_none()
+    user_id = res.scalar_one_or_none()
 
-    if user is None:
+    if user_id is None:
         return JSONResponse(status_code=401, content={"error": "Invalid user."})
 
-    return JWTService.set_cookie(user)
+    return JWTService.set_cookie(user_id)

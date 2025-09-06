@@ -6,4 +6,5 @@ uv.lock
 alembic.ini
 .env
 
+app.log
 misc

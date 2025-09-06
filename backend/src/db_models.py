@@ -80,6 +80,10 @@ class StrategyVersions(Base):
         ForeignKey("strategies.strategy_id"), nullable=False
     )
     code: Mapped[str] = mapped_column(String, nullable=True)
+    prompt: Mapped[str] = mapped_column(String, nullable=False)
+    backtest_status: Mapped[str] = mapped_column(
+        String, nullable=False, default=TaskStatus.NOT_STARTED.value
+    )
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=TaskStatus.PENDING.value
     )

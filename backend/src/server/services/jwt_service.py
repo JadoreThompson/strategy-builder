@@ -1,15 +1,16 @@
 import jwt
-
 from dataclasses import asdict
 from datetime import datetime
+from uuid import UUID
+
 from fastapi import Response
 from sqlalchemy import select
 
 from config import COOKIE_ALIAS, PRODUCTION, JWT_SECRET, JWT_ALGO, JWT_EXPIRY
 from db_models import Users
+from server.exc import JWTError
 from server.typing import JWTPayload
 from utils import get_datetime, get_db_sess
-from ..exc import JWTError
 
 
 class JWTService:
@@ -32,8 +33,8 @@ class JWTService:
             raise JWTError("Invalid token")
 
     @staticmethod
-    def set_cookie(user: Users, rsp: Response | None = None) -> Response:
-        token = JWTService.generate(sub=user.user_id)
+    def set_cookie(user_id: UUID, rsp: Response | None = None) -> Response:
+        token = JWTService.generate(sub=str(user_id))
         if rsp is None:
             rsp = Response()
 
