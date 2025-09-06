@@ -36,7 +36,7 @@ const DashboardSidebar = ({}: {}) => {
                   ["positions", Sword],
                 ] as [string, React.ForwardRefExoticComponent<any>][]
               ).map(([val, I]) => (
-                <SidebarMenuItem>
+                <SidebarMenuItem key={val}>
                   <SidebarMenuButton asChild>
                     <Link
                       to={`/${val}`}

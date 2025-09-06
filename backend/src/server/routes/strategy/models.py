@@ -1,48 +1,13 @@
-from decimal import Decimal
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import field_validator
 
-from core.enums import StrategyType, TaskStatus
+from core.enums import TaskStatus
 from core.typing import CustomBaseModel
-from lib.enums import TradingPlatform
 
 
-class StrategyCreate(CustomBaseModel):
-    prompt: str
-    name: str | None = None
-    strategy_id: UUID | None = None
-
-
-class StrategyResponse(CustomBaseModel):
-    strategy_id: UUID
-    version_id: UUID
-
-
-class StrategyVersionResponse(CustomBaseModel):
-    version_id: UUID
-    strategy_id: UUID
-    name: str
-    prompt: str
-    backtest_status: TaskStatus
-    created_at: datetime
-
-
-class BacktestRequest(CustomBaseModel):
-    instrument: str = "EURUSD"
-    starting_balance: float = 100_000
-    leverage: int = 10
-
-
-class BacktestCreateResponse(CustomBaseModel):
-    backtest_id: UUID
-    status: TaskStatus
-
-
-class BacktestResultResponse(CustomBaseModel):
-    backtest_id: UUID
-    version_id: UUID
+class BacktestResults(CustomBaseModel):
     status: TaskStatus
     total_pnl: float | None
     starting_balance: float | None
@@ -56,3 +21,52 @@ class BacktestResultResponse(CustomBaseModel):
     )
     def round_values(cls, v):
         return round(v, 2)
+
+
+class StrategyCreate(CustomBaseModel):
+    prompt: str
+    name: str | None = None
+    strategy_id: UUID | None = None
+
+
+class StrategyCreateResponse(CustomBaseModel):
+    strategy_id: UUID
+    version_id: UUID
+
+
+class StrategyVersionResponse(CustomBaseModel):
+    version_id: UUID
+    strategy_id: UUID
+    name: str
+    prompt: str
+    backtest_status: TaskStatus
+    created_at: datetime
+
+
+class StrategiesResponse(CustomBaseModel):
+    strategy_id: UUID
+    name: str
+    created_at: datetime
+
+
+class StrategyVersionsResponse(CustomBaseModel):
+    version_id: UUID
+    name: str
+    created_at: datetime
+    backtest: BacktestResults
+
+
+class BacktestRequest(CustomBaseModel):
+    instrument: str = "EURUSD"
+    starting_balance: float = 100_000
+    leverage: int = 10
+
+
+class BacktestCreateResponse(CustomBaseModel):
+    backtest_id: UUID
+    status: TaskStatus
+
+
+class BacktestResultResponse(BacktestResults):
+    backtest_id: UUID
+    version_id: UUID

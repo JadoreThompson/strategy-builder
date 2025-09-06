@@ -10,7 +10,7 @@ function App() {
         <Route path="/positions" element={<PositionsPage />} />
         <Route path="/strategies" element={<StrategiesPage />} />
         <Route
-          path="/strategy/:strategyId"
+          path="/strategies/:strategyId"
           element={<StrategyVersionsPage />}
         />
       </Routes>

@@ -1,3 +1,4 @@
+from pprint import pprint
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
@@ -11,19 +12,22 @@ from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.typing import JWTPayload
 from .models import (
+    BacktestResults,
+    StrategiesResponse,
     StrategyCreate,
-    StrategyResponse,
+    StrategyCreateResponse,
     StrategyVersionResponse,
     BacktestRequest,
     BacktestCreateResponse,
     BacktestResultResponse,
+    StrategyVersionsResponse,
 )
 
 
 route = APIRouter(prefix="/strategies", tags=["strategy"])
 
 
-@route.post("/", response_model=StrategyResponse)
+@route.post("/", response_model=StrategyCreateResponse)
 async def create_strategy_version(
     body: StrategyCreate,
     background_tasks: BackgroundTasks,
@@ -74,12 +78,34 @@ async def create_strategy_version(
 
     background_tasks.add_task(tasks.generate_strategy_code, version_id, body.prompt)
 
-    return StrategyResponse(strategy_id=strategy_id, version_id=version_id)
+    return StrategyCreateResponse(strategy_id=strategy_id, version_id=version_id)
 
 
-@route.get("/{strategy_id}/versions")
+@route.get("/", response_model=list[StrategiesResponse])
+async def get_strategies(
+    name: str | None = None,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    q = select(Strategies.strategy_id, Strategies.name, Strategies.created_at).where(
+        Strategies.user_id == jwt.sub
+    )
+
+    if name:
+        q = q.where(Strategies.name.like(f"%{name}%"))
+
+    res = await db_sess.execute(q)
+    data = res.all()
+    return [
+        StrategiesResponse(strategy_id=strat_id, name=name, created_at=created_at)
+        for strat_id, name, created_at in data
+    ]
+
+
+@route.get("/{strategy_id}/versions", response_model=list[StrategyVersionsResponse])
 async def get_strategy_versions(
     strategy_id: UUID,
+    name: str | None = None,
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
@@ -88,17 +114,44 @@ async def get_strategy_versions(
             Strategies.strategy_id == strategy_id, Strategies.user_id == jwt.sub
         )
     )
+
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
 
-    version_ids = (
-        await db_sess.scalars(
-            select(StrategyVersions.version_id).where(
-                StrategyVersions.strategy_id == strategy_id
-            )
+    q = select(
+        StrategyVersions.version_id,
+        StrategyVersions.name,
+        StrategyVersions.created_at,
+        Backtests,
+    ).where(StrategyVersions.strategy_id == strategy_id)
+
+    if name:
+        q = q.where(StrategyVersions.name.like(f"%{name}%"))
+
+    q = q.join(
+        Backtests, Backtests.version_id == StrategyVersions.version_id, isouter=True
+    )
+
+    res = await db_sess.execute(q)
+    versions = res.all()
+
+    return [
+        StrategyVersionsResponse(
+            version_id=vid,
+            name=name,
+            created_at=created_at,
+            backtest=BacktestResults(
+                status=bt.status,
+                total_pnl=bt.total_pnl,
+                starting_balance=bt.starting_balance,
+                end_balance=bt.end_balance,
+                total_trades=bt.total_trades,
+                win_rate=bt.win_rate,
+                created_at=bt.created_at,
+            ),
         )
-    ).all()
-    return version_ids
+        for vid, name, created_at, bt in versions
+    ]
 
 
 @route.delete("/{strategy_id}")

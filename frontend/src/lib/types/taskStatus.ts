@@ -1,7 +1,1 @@
-export enum TaskStatus {
-  NOT_STARTED = "not_started",
-  PENDING = "pending",
-  COMPLETED = "completed",
-  FAILED = "failed",
-}
-
+export type TaskStatus = "not_started" | "pending" | "completed" | "failed";
