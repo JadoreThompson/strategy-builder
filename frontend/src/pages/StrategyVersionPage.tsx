@@ -261,7 +261,7 @@ const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
           <Button
             variant="outline"
             onClick={() => setCounter((prev) => prev + 1)}
-            className="h-full"
+            className="h-full cursor-pointer"
           >
             <RotateCw />
           </Button>

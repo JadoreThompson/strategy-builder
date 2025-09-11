@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -50,7 +49,16 @@ const StrategiesPage: FC = () => {
     <DashboardLayout>
       <h1 className="text-2xl font-semibold mb-3">Strategies</h1>
       <div className="w-full h-9 flex justify-between mb-3">
-        <Button className="h-full cursor-pointer">Create</Button>
+        <Link
+          to="/create-strategy"
+          className="h-full w-20 flex items-center justify-center text-white font-medium p-1 cursor-pointer"
+          style={{
+            backgroundColor: "var(--primary)",
+            borderRadius: "var(--radius)",
+          }}
+        >
+          Create
+        </Link>
         <div className="h-full flex items-center border-1 border-gray-200 px-2">
           <Search className="text-gray-600 w-5 h-5" />
           <Input
