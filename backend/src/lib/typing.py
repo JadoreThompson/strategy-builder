@@ -39,7 +39,7 @@ class MSS(NamedTuple):
 # TODO: Add support for partials
 @dataclass
 class Position:
-    id: str
+    id: str | int
     instrument: str
     side: Side
     order_type: OrderType
@@ -56,6 +56,7 @@ class Position:
     created_at: datetime | None = field(default_factory=get_datetime)
     close_price: float | None = None
     closed_at: datetime | None = None
+    metadata: dict | None = None
 
     def __post_init__(self):
         self.current_amount = self.starting_amount
