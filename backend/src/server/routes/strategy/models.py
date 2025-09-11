@@ -20,7 +20,8 @@ class BacktestResult(CustomBaseModel):
         "total_pnl", "starting_balance", "end_balance", "win_rate", mode="after"
     )
     def round_values(cls, v):
-        return round(v, 2)
+        if v is not None:
+            return round(v, 2)
 
 
 class StrategyCreate(CustomBaseModel):
@@ -58,7 +59,7 @@ class StrategyVersionsResponse(CustomBaseModel):
     backtest: BacktestResult | None
 
 
-class BacktestRequest(CustomBaseModel):
+class BacktestCreate(CustomBaseModel):
     instrument: str = "EURUSD"
     starting_balance: float = 100_000
     leverage: int = 10

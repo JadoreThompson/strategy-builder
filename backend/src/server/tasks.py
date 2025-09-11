@@ -42,6 +42,7 @@ async def generate_strategy_code(version_id: UUID, prompt: str):
 
 def run_backtest(backtest_id: UUID, backtest_params: dict):
     logger.info(f"Starting backtest for backtest_id: {backtest_id}")
+    
     try:
         with get_db_sess_sync() as db_sess:
             backtest_run = db_sess.scalar(
@@ -57,7 +58,6 @@ def run_backtest(backtest_id: UUID, backtest_params: dict):
         bt_service = BacktestService()
         results = bt_service.run(strategy_code, backtest_params)
 
-        print(results)
 
         with get_db_sess_sync() as db_sess:
             db_sess.execute(
@@ -66,6 +66,7 @@ def run_backtest(backtest_id: UUID, backtest_params: dict):
                 .values(**results, status=TaskStatus.COMPLETED.value)
             )
             db_sess.commit()
+
         logger.info(f"Successfully completed backtest for backtest_id: {backtest_id}")
     except Exception as e:
         logger.error(

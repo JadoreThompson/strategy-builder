@@ -21,8 +21,14 @@ import useFetch from "@/hooks/useFetch";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import type { DeploymentStatus } from "@/lib/types/deploymentStatus";
 import type { TaskStatus } from "@/lib/types/taskStatus";
-import { Ellipsis, MessageCircle, NotepadText, Trash2 } from "lucide-react";
-import { useState, type FC } from "react";
+import {
+  Ellipsis,
+  MessageCircle,
+  NotepadText,
+  RotateCw,
+  Trash2,
+} from "lucide-react";
+import React, { useState, type FC } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -141,86 +147,201 @@ interface BacktestResult {
 }
 
 const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
+  const [counter, setCounter] = useState<number>(0);
+
   const {
     data: backtests,
     loading,
     error,
   } = useFetch<BacktestResult[]>(
-    HTTP_BASE_URL + `/strategies/versions/${versionId}/backtests`,
+    HTTP_BASE_URL +
+      `/strategies/versions/${versionId}/backtests?refresh=${counter}`,
     { credentials: "include" }
   );
 
+  const [showCard, setShowCard] = useState<boolean>(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const fd = new FormData(e.currentTarget);
+
+    const rsp = await fetch(
+      HTTP_BASE_URL + `/strategies/versions/${versionId}/backtest`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(fd),
+      }
+    );
+
+    if (rsp.ok) {
+      toast("Backtest initiated");
+      setCounter((prev) => prev + 1);
+    } else {
+      const data = await rsp.json();
+      toast(`Error: ${data.error}`);
+    }
+
+    setShowCard(false);
+  };
+
   return (
-    <Table className="w-full h-full">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Status</TableHead>
-          <TableHead>Total PnL</TableHead>
-          <TableHead>Starting Balance</TableHead>
-          <TableHead>End Balance</TableHead>
-          <TableHead>Total Trades</TableHead>
-          <TableHead>Win Rate</TableHead>
-          <TableHead className="text-right">Created At</TableHead>
-        </TableRow>
-      </TableHeader>
-
-      <TableBody>
-        {!loading && !error && (
-          <>
-            {backtests!.length > 0 ? (
-              <>
-                {backtests!.map((b, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>
-                      <BacktestBadge
-                        status={b.status}
-                        className="p-1 text-xs"
-                      />
-                    </TableCell>
-                    <TableCell>{b.total_pnl?.toFixed(2) ?? "-"}</TableCell>
-                    <TableCell>
-                      {b.starting_balance?.toFixed(2) ?? "-"}
-                    </TableCell>
-                    <TableCell>{b.end_balance?.toFixed(2) ?? "-"}</TableCell>
-                    <TableCell>{b.total_trades ?? "-"}</TableCell>
-                    <TableCell>{b.win_rate?.toFixed(2) ?? "-"}</TableCell>
-                    <TableCell className="text-right">
-                      {new Date(b.created_at).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </>
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} className="h-50 !bg-gray-100">
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span>No backtests</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </>
+    <>
+      {showCard &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
+            <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
+              <h2 className="text-lg font-bold mb-4">Launch Backtest</h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Instrument
+                  </label>
+                  <input
+                    type="text"
+                    name="instrument"
+                    placeholder="e.g. BTC/USDT"
+                    className="w-full border rounded-md px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Starting Balance
+                  </label>
+                  <input
+                    type="number"
+                    name="starting_balance"
+                    placeholder="1000"
+                    className="w-full border rounded-md px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Leverage
+                  </label>
+                  <input
+                    type="number"
+                    name="leverage"
+                    placeholder="10"
+                    className="w-full border rounded-md px-3 py-2"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCard(false)}
+                    className="px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="px-4 py-2 text-white rounded-md cursor-pointer"
+                  >
+                    Submit
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </Card>,
+          document.body
         )}
 
-        {loading && (
+      <div className="w-full h-7 relative mb-3">
+        <div className="h-full absolute right-0 flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCounter((prev) => prev + 1)}
+            className="h-full"
+          >
+            <RotateCw />
+          </Button>
+          <Button onClick={() => setShowCard(true)} className="h-full">
+            Launch
+          </Button>
+        </div>
+      </div>
+
+      <Table className="w-full h-full">
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={7} className="h-50">
-              <Skeleton className="w-full h-full bg-gray-400" />
-            </TableCell>
+            <TableHead>Status</TableHead>
+            <TableHead>Total PnL</TableHead>
+            <TableHead>Starting Balance</TableHead>
+            <TableHead>End Balance</TableHead>
+            <TableHead>Total Trades</TableHead>
+            <TableHead>Win Rate</TableHead>
+            <TableHead className="text-right">Created At</TableHead>
           </TableRow>
-        )}
+        </TableHeader>
 
-        {error && (
-          <TableRow>
-            <TableCell colSpan={7} className="h-50">
-              <div className="w-full h-full flex items-center justify-center">
-                <span>{error.message}</span>
-              </div>
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+        <TableBody>
+          {!loading && !error && (
+            <>
+              {backtests!.length > 0 ? (
+                <>
+                  {backtests!.map((b, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>
+                        <BacktestBadge
+                          status={b.status}
+                          className="p-1 text-xs"
+                        />
+                      </TableCell>
+                      <TableCell>{b.total_pnl?.toFixed(2) ?? "-"}</TableCell>
+                      <TableCell>
+                        {b.starting_balance?.toFixed(2) ?? "-"}
+                      </TableCell>
+                      <TableCell>{b.end_balance?.toFixed(2) ?? "-"}</TableCell>
+                      <TableCell>{b.total_trades ?? "-"}</TableCell>
+                      <TableCell>{b.win_rate?.toFixed(2) ?? "-"}</TableCell>
+                      <TableCell className="text-right">
+                        {new Date(b.created_at).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </>
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-50 !bg-gray-100">
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span>No backtests</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </>
+          )}
+
+          {loading && (
+            <TableRow>
+              <TableCell colSpan={7} className="h-50">
+                <Skeleton className="w-full h-full bg-gray-400" />
+              </TableCell>
+            </TableRow>
+          )}
+
+          {error && (
+            <TableRow>
+              <TableCell colSpan={7} className="h-50">
+                <div className="w-full h-full flex items-center justify-center">
+                  <span>{error.message}</span>
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </>
   );
 };
 
@@ -242,7 +363,7 @@ const DEFAULT_TAB = TABS[0];
 const StrategyVersion: FC = () => {
   const { versionId } = useParams();
   const navigate = useNavigate();
-  const { data, loading, error } = useFetch<StrategyVersionResponse>(
+  const { data, loading } = useFetch<StrategyVersionResponse>(
     HTTP_BASE_URL + `/strategies/versions/${versionId}`,
     { credentials: "include" }
   );
@@ -279,7 +400,7 @@ const StrategyVersion: FC = () => {
         data &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="z-[999] fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="z-[999] fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
             <Card className="relative w-full max-w-2xl min-h-[300px] max-h-[600px] p-6 shadow-xl border border-gray-200">
               <h2 className="text-xl font-semibold mb-4">Prompt</h2>
               <div className="prose prose-sm w-full h-full text-gray-700 whitespace-pre-wrap min-h-[300px] overflow-y-scroll">

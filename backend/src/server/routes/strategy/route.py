@@ -10,7 +10,7 @@ from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.typing import JWTPayload
 from .models import (
-    BacktestRequest,
+    BacktestCreate,
     BacktestResult,
     BacktestCreateResponse,
     BacktestResultResponse,
@@ -191,11 +191,16 @@ async def get_backtests(
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
+    owned_versions = (
+        select(StrategyVersions.version_id)
+        .join(Strategies, StrategyVersions.strategy_id == Strategies.strategy_id)
+        .where(Strategies.user_id == jwt.sub)
+    )
+
     res = await db_sess.scalars(
-        select(Backtests)
-        .join(StrategyVersions, Backtests.version_id == StrategyVersions.version_id)
-        .join(Strategies, StrategyVersions.strategy_id == StrategyVersions.strategy_id)
-        .where(Backtests.version_id == version_id, Strategies.user_id == jwt.sub)
+        select(Backtests).where(
+            Backtests.version_id == version_id, Backtests.version_id.in_(owned_versions)
+        )
     )
 
     return [
@@ -233,7 +238,7 @@ async def get_strategy_version(
 @route.post("/versions/{version_id}/backtest", response_model=BacktestCreateResponse)
 async def create_backtest(
     version_id: UUID,
-    body: BacktestRequest,
+    body: BacktestCreate,
     background_tasks: BackgroundTasks,
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
@@ -256,6 +261,7 @@ async def create_backtest(
         insert(Backtests).values(version_id=version_id).returning(Backtests)
     )
     backtest = res.scalar()
+
     bt_dict = backtest.__dict__.copy()
     bt_dict.pop("_sa_instance_state", None)
     await db_sess.commit()
