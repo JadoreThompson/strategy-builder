@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router";
 import PositionsPage from "./pages/PositionsPage";
 import StrategiesPage from "./pages/StrategiesPage";
+import StrategyVersionPage from "./pages/StrategyVersionPage";
 import StrategyVersionsPage from "./pages/StrategyVersionsPage";
 
 function App() {
@@ -12,6 +13,10 @@ function App() {
         <Route
           path="/strategies/:strategyId"
           element={<StrategyVersionsPage />}
+        />
+        <Route
+          path="/strategies/versions/:versionId"
+          element={<StrategyVersionPage />}
         />
       </Routes>
     </BrowserRouter>

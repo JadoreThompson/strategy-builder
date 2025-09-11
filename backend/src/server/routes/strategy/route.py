@@ -1,30 +1,29 @@
-from pprint import pprint
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from sqlalchemy import delete, insert, select, func
+from sqlalchemy import insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from core.enums import TaskStatus
-from db_models import Strategies, StrategyVersions, Backtests
+from db_models import Positions, Strategies, StrategyVersions, Backtests
 from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.typing import JWTPayload
 from .models import (
-    BacktestResults,
+    BacktestRequest,
+    BacktestResult,
+    BacktestCreateResponse,
+    BacktestResultResponse,
+    Position,
     StrategiesResponse,
     StrategyCreate,
     StrategyCreateResponse,
     StrategyVersionResponse,
-    BacktestRequest,
-    BacktestCreateResponse,
-    BacktestResultResponse,
     StrategyVersionsResponse,
 )
 
 
-route = APIRouter(prefix="/strategies", tags=["strategy"])
+route = APIRouter(prefix="/strategies", tags=["strategies"])
 
 
 @route.post("/", response_model=StrategyCreateResponse)
@@ -36,6 +35,7 @@ async def create_strategy_version(
 ):
     strategy_id = body.strategy_id
     user_id = jwt.sub
+    name = body.name
 
     if not strategy_id:
         if not body.name:
@@ -50,6 +50,7 @@ async def create_strategy_version(
         )
         strategy_id = new_strategy.strategy_id
         version_count = 0
+        name = "v1"
     else:
         strat_check = await db_sess.scalar(
             select(Strategies).where(
@@ -65,11 +66,12 @@ async def create_strategy_version(
             .where(StrategyVersions.strategy_id == strategy_id)
         )
 
+        if not body.name:
+            name = f"v{version_count + 1}"
+
     res = await db_sess.execute(
         insert(StrategyVersions)
-        .values(
-            strategy_id=strategy_id, name=f"v{version_count + 1}", prompt=body.prompt
-        )
+        .values(strategy_id=strategy_id, name=name, prompt=body.prompt)
         .returning(StrategyVersions.version_id)
     )
     version_id = res.scalar()
@@ -121,6 +123,7 @@ async def get_strategy_versions(
     q = select(
         StrategyVersions.version_id,
         StrategyVersions.name,
+        StrategyVersions.deployment_status,
         StrategyVersions.created_at,
         Backtests,
     ).where(StrategyVersions.strategy_id == strategy_id)
@@ -135,12 +138,12 @@ async def get_strategy_versions(
     res = await db_sess.execute(q)
     versions = res.all()
 
-    return [
-        StrategyVersionsResponse(
-            version_id=vid,
-            name=name,
-            created_at=created_at,
-            backtest=BacktestResults(
+    res = []
+    for vid, name, ds, created_at, bt in versions:
+        backtest = None
+
+        if bt:
+            backtest = BacktestResult(
                 status=bt.status,
                 total_pnl=bt.total_pnl,
                 starting_balance=bt.starting_balance,
@@ -148,10 +151,19 @@ async def get_strategy_versions(
                 total_trades=bt.total_trades,
                 win_rate=bt.win_rate,
                 created_at=bt.created_at,
-            ),
+            )
+
+        sv = StrategyVersionsResponse(
+            version_id=vid,
+            name=name,
+            created_at=created_at,
+            deployment_status=ds,
+            backtest=backtest,
         )
-        for vid, name, created_at, bt in versions
-    ]
+
+        res.append(sv)
+
+    return res
 
 
 @route.delete("/{strategy_id}")
@@ -170,6 +182,34 @@ async def delete_strategy(
 
     await db_sess.delete(strategy)
     await db_sess.commit()
+    return {"message": "Successfully deleted  strategy"}
+
+
+@route.get("/versions/{version_id}/backtests", response_model=list[BacktestResult])
+async def get_backtests(
+    version_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    res = await db_sess.scalars(
+        select(Backtests)
+        .join(StrategyVersions, Backtests.version_id == StrategyVersions.version_id)
+        .join(Strategies, StrategyVersions.strategy_id == StrategyVersions.strategy_id)
+        .where(Backtests.version_id == version_id, Strategies.user_id == jwt.sub)
+    )
+
+    return [
+        BacktestResult(
+            status=bt.status,
+            total_pnl=bt.total_pnl,
+            starting_balance=bt.starting_balance,
+            end_balance=bt.end_balance,
+            total_trades=bt.total_trades,
+            win_rate=bt.win_rate,
+            created_at=bt.created_at,
+        )
+        for bt in res.all()
+    ]
 
 
 @route.get("/versions/{version_id}", response_model=StrategyVersionResponse)
@@ -225,6 +265,63 @@ async def create_backtest(
     )
 
     return bt_dict
+
+
+@route.get("/versions/{version_id}/positions", response_model=list[Position])
+async def get_positions(
+    version_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    res = await db_sess.scalars(
+        select(Positions)
+        .join(StrategyVersions, StrategyVersions.version_id == version_id)
+        .join(Strategies, Strategies.strategy_id == StrategyVersions.strategy_id)
+        .where(Positions.version_id == version_id, Positions.user_id == jwt.sub)
+    )
+
+    return [
+        Position(
+            id=p.position_id,
+            instrument=p.instrument,
+            side=p.side,
+            order_type=p.order_type,
+            starting_amount=p.starting_amount,
+            current_amount=p.current_amount,
+            price=p.price,
+            limit_price=p.limit_price,
+            stop_price=p.stop_price,
+            tp_price=p.tp_price,
+            sl_price=p.sl_price,
+            realised_pnl=p.realised_pnl,
+            unrealised_pnl=p.unrealised_pnl,
+            status=p.status,
+            created_at=p.created_at,
+            close_price=p.close_price,
+            closed_at=p.closed_at,
+        )
+        for p in res.all()
+    ]
+
+
+@route.delete("/versions/{version_id}")
+async def delete_version(
+    version_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    version = await db_sess.scalar(
+        select(StrategyVersions)
+        .join(Strategies, Strategies.strategy_id == StrategyVersions.strategy_id)
+        .where(StrategyVersions.version_id == version_id, Strategies.user_id == jwt.sub)
+    )
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    await db_sess.delete(version)
+    await db_sess.commit()
+
+    return {"message": "Successfully deleted version"}
 
 
 @route.get("/backtests/{backtest_id}", response_model=BacktestResultResponse)

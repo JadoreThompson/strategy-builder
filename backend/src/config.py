@@ -9,14 +9,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine
 
 
-load_dotenv()
-
 PRODUCTION = False
 
 
 # Paths
 BASE_PATH = os.path.dirname(__file__)
 RESOURCES_PATH = os.path.join(BASE_PATH, "resources")
+
+
+load_dotenv(os.path.join(BASE_PATH, ".env"))
 
 
 # Auth

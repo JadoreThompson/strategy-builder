@@ -71,7 +71,19 @@ const StrategiesPage: FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {!(strategies ?? []).length ? (
+            {strategies.length ? (
+              strategies.map((strat, idx) => (
+                <TableRow
+                  key={idx}
+                  onClick={() => navigate(`/strategies/${strat.strategy_id}`)}
+                  className="cursor-pointer"
+                >
+                  <TableCell>{`${strat.strategy_id.slice(0, 8)}...`}</TableCell>
+                  <TableCell>{strat.name}</TableCell>
+                  <TableCell>{strat.created_at}</TableCell>
+                </TableRow>
+              ))
+            ) : (
               <TableRow>
                 <TableCell colSpan={3} className="h-25">
                   <div className="w-full h-full flex items-center justify-center">
@@ -89,18 +101,6 @@ const StrategiesPage: FC = () => {
                   </div>
                 </TableCell>
               </TableRow>
-            ) : (
-              strategies.map((strat, idx) => (
-                <TableRow
-                  key={idx}
-                  onClick={() => navigate(`/strategies/${strat.strategy_id}`)}
-                  className="cursor-pointer"
-                >
-                  <TableCell>{`${strat.strategy_id.slice(0, 8)}...`}</TableCell>
-                  <TableCell>{strat.name}</TableCell>
-                  <TableCell>{strat.created_at}</TableCell>
-                </TableRow>
-              ))
             )}
           </TableBody>
         </Table>

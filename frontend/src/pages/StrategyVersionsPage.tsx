@@ -1,3 +1,4 @@
+import BacktestBadge from "@/components/BacktestBadge";
 import { Input } from "@/components/ui/input";
 import { HTTP_BASE_URL } from "@/config";
 import useFetch from "@/hooks/useFetch";
@@ -49,7 +50,7 @@ interface StrategyVersionPerformance {
 interface StrategyVersionCardProps {
   version_id: string;
   name: string;
-  backtestStatus: TaskStatus;
+  backtestStatus?: TaskStatus;
   stats: StrategyVersionPerformance;
 }
 
@@ -59,39 +60,20 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
   backtestStatus,
   stats,
 }) => {
-  const getBacktestIconColor = (status: TaskStatus) => {
-    switch (status) {
-      case "not_started":
-        return "bg-gray-200/50 text-gray-500";
-      case "pending":
-        return "bg-orange-200/50 text-orange-500";
-      case "completed":
-        return "bg-green-200/50 text-green-500";
-      case "failed":
-        return "bg-red-200/50 text-red-500";
-      default:
-        return "bg-gray-200/50 text-gray-500";
-    }
-  };
-
   return (
     <Link
-      to={`/strategies/${version_id}`}
+      to={`/strategies/versions/${version_id}`}
       className="w-full h-full grid grid-cols-2 gap-2 p-3 border-1 border-gray-200 hover:shadow-md hover:shadow-gray-100 cursor-pointer"
     >
       <div className="flex flex-col gap-7 py-3">
         <div className="flex items-center gap-3">
           <h4 className="text-lg font-medium">{name}</h4>
-          <span
-            className={`text-xs w-fit h-fit p-1 ${getBacktestIconColor(
-              backtestStatus
-            )}`}
-          >
-            {(() => {
-              const s = backtestStatus.toString();
-              return s.charAt(0).toUpperCase() + s.slice(1);
-            })()}
-          </span>
+          {backtestStatus && (
+            <BacktestBadge
+              status={backtestStatus}
+              className="text-xs w-fit h-fit p-1"
+            />
+          )}
         </div>
         <div className="flex flex-col gap-3">
           <div className="flex flex-row justify-between gap-2">
@@ -145,7 +127,7 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
   );
 };
 
-export interface BacktestResults {
+interface BacktestResults {
   status: TaskStatus;
   total_pnl: number | null;
   starting_balance: number | null;
@@ -155,11 +137,11 @@ export interface BacktestResults {
   created_at: string; // ISO datetime string
 }
 
-export interface StrategyVersionsResponse {
+interface StrategyVersionsResponse {
   version_id: string; // UUID as string
   name: string;
   created_at: string; // ISO datetime string
-  backtest: BacktestResults;
+  backtest: BacktestResults | null;
 }
 
 const StrategiesVersionsPage: FC = () => {
@@ -172,8 +154,6 @@ const StrategiesVersionsPage: FC = () => {
       (searchText ? `?name=${encodeURIComponent(searchText)}` : ""),
     { credentials: "include" }
   );
-
-  console.log(data);
 
   return (
     <DashboardLayout>
@@ -191,24 +171,28 @@ const StrategiesVersionsPage: FC = () => {
       </div>
 
       <div className="flex flex-col gap-2">
-        {!(data ?? []).length ? (
-          <p className="text-center text-gray-500">No strategies found</p>
-        ) : (
-          data!.map((strategy) => (
-            <div key={strategy.version_id} className="w-full h-50">
+        {(data ?? []).length ? (
+          data!.map((version) => (
+            <div key={version.version_id} className="w-full h-50">
               <StrategyVersionCard
-                version_id={strategy.version_id}
-                name={strategy.name}
-                backtestStatus={strategy.backtest.status}
-                stats={{
-                  max_drawdown: 50.0,
-                  win_rate: strategy.backtest.win_rate,
-                  sharpe_ratio: 6.7,
-                  total_pnl: strategy.backtest.total_pnl,
-                }}
+                version_id={version.version_id}
+                name={version.name}
+                backtestStatus={version.backtest?.status}
+                stats={
+                  version.backtest
+                    ? {
+                        max_drawdown: 50.0,
+                        win_rate: version.backtest.win_rate,
+                        sharpe_ratio: 6.7,
+                        total_pnl: version.backtest.total_pnl,
+                      }
+                    : ({} as StrategyVersionPerformance)
+                }
               />
             </div>
           ))
+        ) : (
+          <p className="text-center text-gray-500">No versions found</p>
         )}
       </div>
     </DashboardLayout>

@@ -3,11 +3,11 @@ from uuid import UUID
 
 from pydantic import field_validator
 
-from core.enums import TaskStatus
+from core.enums import TaskStatus, DeploymentStatus
 from core.typing import CustomBaseModel
 
 
-class BacktestResults(CustomBaseModel):
+class BacktestResult(CustomBaseModel):
     status: TaskStatus
     total_pnl: float | None
     starting_balance: float | None
@@ -40,6 +40,7 @@ class StrategyVersionResponse(CustomBaseModel):
     name: str
     prompt: str
     backtest_status: TaskStatus
+    deployment_status: DeploymentStatus
     created_at: datetime
 
 
@@ -53,7 +54,8 @@ class StrategyVersionsResponse(CustomBaseModel):
     version_id: UUID
     name: str
     created_at: datetime
-    backtest: BacktestResults
+    deployment_status: DeploymentStatus
+    backtest: BacktestResult | None
 
 
 class BacktestRequest(CustomBaseModel):
@@ -67,6 +69,26 @@ class BacktestCreateResponse(CustomBaseModel):
     status: TaskStatus
 
 
-class BacktestResultResponse(BacktestResults):
+class BacktestResultResponse(BacktestResult):
     backtest_id: UUID
     version_id: UUID
+
+
+class Position(CustomBaseModel):
+    position_id: str
+    instrument: str
+    side: str
+    order_type: str
+    starting_amount: float
+    current_amount: float | None
+    price: float | None
+    limit_price: float | None
+    stop_price: float | None
+    tp_price: float | None
+    sl_price: float | None
+    realised_pnl: float | None
+    unrealised_pnl: float | None
+    status: str
+    created_at: datetime | None
+    close_price: float | None
+    closed_at: datetime | None

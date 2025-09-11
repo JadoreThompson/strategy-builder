@@ -58,14 +58,20 @@ const DashboardSidebar = ({}: {}) => {
   );
 };
 
-export function DashboardLayout({ children }: { children: React.ReactNode }) {
+export function DashboardLayout({
+  children,
+  className = "max-w-7xl mx-auto mt-7",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div className="w-full min-h-screen flex">
       <SidebarProvider>
         <DashboardSidebar />
         <main className="flex-1">
           <SidebarTrigger />
-          <div className="max-w-7xl mx-auto mt-7">{children}</div>
+          <div className={className}>{children}</div>
         </main>
       </SidebarProvider>
     </div>
