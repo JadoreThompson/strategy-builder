@@ -1,4 +1,5 @@
 import BacktestBadge from "@/components/BacktestBadge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HTTP_BASE_URL } from "@/config";
 import useFetch from "@/hooks/useFetch";
@@ -6,7 +7,7 @@ import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { type TaskStatus } from "@/lib/types/taskStatus";
 import { Search } from "lucide-react";
 import { useState, type FC } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 export const BacktestChart: FC<{ data: { date: string; pnl: number }[] }> = ({
@@ -146,6 +147,7 @@ interface StrategyVersionsResponse {
 
 const StrategiesVersionsPage: FC = () => {
   const { strategyId } = useParams();
+  const navigate = useNavigate();
   const [searchText, setSearchText] = useState("");
 
   const { data } = useFetch<StrategyVersionsResponse[]>(
@@ -157,9 +159,15 @@ const StrategiesVersionsPage: FC = () => {
 
   return (
     <DashboardLayout>
-      <h1 className="text-2xl font-semibold">Versions</h1>
-      <div className="w-full flex justify-end mb-3">
-        <div className="flex items-center border-1 border-gray-200 px-2">
+      <h1 className="text-2xl font-semibold mb-3">Versions</h1>
+      <div className="w-full h-7 flex justify-between mb-3">
+        <Button
+          onClick={() => navigate(`/create-version?strategy_id=${strategyId}`)}
+          className="h-full"
+        >
+          Create
+        </Button>
+        <div className="h-full flex items-center border-1 border-gray-200 px-2">
           <Search className="text-gray-600 w-5 h-5" />
           <Input
             placeholder="Search"

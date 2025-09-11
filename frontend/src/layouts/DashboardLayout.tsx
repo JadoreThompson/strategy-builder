@@ -1,8 +1,10 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -12,6 +14,11 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@radix-ui/react-popover";
 import { Lightbulb, Scale, Sword } from "lucide-react";
 import { Link } from "react-router";
 
@@ -54,6 +61,19 @@ const DashboardSidebar = ({}: {}) => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button>User</Button>
+            </PopoverTrigger>
+            <PopoverContent
+              forceMount
+              className="w-60 bg-white dark:bg-secondary border-1 border-gray-300"
+            ></PopoverContent>
+          </Popover>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 };
@@ -69,7 +89,7 @@ export function DashboardLayout({
     <div className="w-full min-h-screen flex">
       <SidebarProvider>
         <DashboardSidebar />
-        <main className="flex-1">
+        <main className="flex-1 pb-5">
           <SidebarTrigger />
           <div className={className}>{children}</div>
         </main>

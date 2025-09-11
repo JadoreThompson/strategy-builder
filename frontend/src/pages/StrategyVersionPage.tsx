@@ -407,7 +407,6 @@ const StrategyVersion: FC = () => {
                 {data.prompt}
               </div>
               <Button
-                variant="secondary"
                 size="sm"
                 onClick={() => setShowPrompt(false)}
                 className="absolute top-3 right-3 cursor-pointer"
