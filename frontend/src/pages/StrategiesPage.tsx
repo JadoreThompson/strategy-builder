@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -25,7 +26,6 @@ const StrategiesPage: FC = () => {
   const [searchText, setSearchText] = useState("");
   const [strategies, setStrategies] = useState<StrategiesResponse[]>([]);
 
-  // Fetch strategies whenever searchText changes
   const { data, loading: isLoading } = useFetch<StrategiesResponse[]>(
     HTTP_BASE_URL +
       "/strategies" +
@@ -48,9 +48,10 @@ const StrategiesPage: FC = () => {
 
   return (
     <DashboardLayout>
-      <h1 className="text-2xl font-semibold">Strategies</h1>
-      <div className="w-full flex justify-end mb-3">
-        <div className="flex items-center border-1 border-gray-200 px-2">
+      <h1 className="text-2xl font-semibold mb-3">Strategies</h1>
+      <div className="w-full h-9 flex justify-between mb-3">
+        <Button className="h-full cursor-pointer">Create</Button>
+        <div className="h-full flex items-center border-1 border-gray-200 px-2">
           <Search className="text-gray-600 w-5 h-5" />
           <Input
             placeholder="Search"

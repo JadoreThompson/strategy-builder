@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+from server.exc import JWTError
 from server.routes.auth.route import route as auth_router
 from server.routes.strategy.route import route as strategy_router
 
@@ -21,6 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=True,
 )
+
+
+@app.exception_handler(JWTError)
+async def http_exception_handler(request: Request, exc: JWTError):
+    return JSONResponse(status_code=403, content={"error": str(exc)})
 
 
 @app.exception_handler(HTTPException)

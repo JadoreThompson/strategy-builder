@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router";
+import CreateStrategyPage from "./pages/CreateStrategyPage";
 import PositionsPage from "./pages/PositionsPage";
 import StrategiesPage from "./pages/StrategiesPage";
 import StrategyVersionPage from "./pages/StrategyVersionPage";
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/positions" element={<PositionsPage />} />
         <Route path="/strategies" element={<StrategiesPage />} />
+        <Route path="/create-strategy" element={<CreateStrategyPage />} />
         <Route
           path="/strategies/:strategyId"
           element={<StrategyVersionsPage />}
