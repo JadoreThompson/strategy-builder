@@ -129,14 +129,14 @@ interface BacktestResult {
 }
 
 const CreateBacktestCard: FC<{
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
-  setShowCard: (arg: boolean) => void | Promise<void>;
-}> = ({ handleSubmit, setShowCard }) => {
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onClose: () => void | Promise<void>;
+}> = ({ onSubmit, onClose }) => {
   return (
     <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
       <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
         <h2 className="text-lg font-bold mb-4">Launch Backtest</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Instrument</label>
             <input
@@ -173,7 +173,7 @@ const CreateBacktestCard: FC<{
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowCard(false)}
+              onClick={() => onClose()}
               className="px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer"
             >
               Cancel
@@ -240,8 +240,8 @@ const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
         typeof document !== "undefined" &&
         createPortal(
           <CreateBacktestCard
-            handleSubmit={handleSubmit}
-            setShowCard={setShowCard}
+            onSubmit={handleSubmit}
+            onClose={() => setShowCard(false)}
           />,
           document.body
         )}
@@ -466,7 +466,7 @@ const StrategyVersion: FC = () => {
                       onClick={() => {
                         deleteVersion();
                       }}
-                      className="w-full h-7 flex flex-row items-center justify-start gap-1 p-2 shadow-none bg-red-100 hover:bg-red-200 cursor-pointer"
+                      className="w-full h-7 flex flex-row items-center justify-start gap-1 p-2 shadow-none hover:bg-red-100 cursor-pointer"
                     >
                       <Trash2 className="w-3 h-3 text-red-500" />
                       <span className="p-0 !bg-transparent text-xs text-red-500">

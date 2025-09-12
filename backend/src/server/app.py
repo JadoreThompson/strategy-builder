@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from server.exc import JWTError
 from server.routes.accounts.route import route as account_router
 from server.routes.auth.route import route as auth_router
+from server.routes.deployments.route import route as deployment_router
 from server.routes.strategy.route import route as strategy_router
 
 
@@ -12,6 +13,7 @@ app = FastAPI(title="Strategy Builder API", version="0.0.0")
 
 app.include_router(account_router)
 app.include_router(auth_router)
+app.include_router(deployment_router)
 app.include_router(strategy_router)
 
 app.add_middleware(

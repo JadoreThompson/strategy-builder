@@ -1,8 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 
-from lib.enums import TradingPlatform
 from core.typing import CustomBaseModel
+from lib.enums import TradingPlatform
 
 
 class AccountCreate(CustomBaseModel):
@@ -23,3 +23,11 @@ class AccountResponse(CustomBaseModel):
 class AccountDetailResponse(AccountResponse):
     login: str
     server: str
+
+
+class AccountUpdate(CustomBaseModel):
+    name: str | None = None
+    login: str | None = None
+    password: str | None = None
+    server: str | None = None
+    platform: str | None = None

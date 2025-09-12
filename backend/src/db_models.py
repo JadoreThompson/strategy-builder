@@ -49,6 +49,9 @@ class Accounts(Base):
 
     # Relationships
     user: Mapped["Users"] = relationship(back_populates="accounts")
+    deployments: Mapped[list["Deployments"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Ticks(Base):
@@ -116,29 +119,9 @@ class StrategyVersions(Base):
     backtests: Mapped[list["Backtests"]] = relationship(
         back_populates="strategy_version", cascade="all, delete-orphan"
     )
-
-
-# class Positions(Base):
-#     __tablename__ = "positions"
-
-#     position_id: Mapped[UUID] = mapped_column(
-#         UUID(as_uuid=True), primary_key=True, default=uuid4
-#     )
-#     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
-#     version_id: Mapped[UUID] = mapped_column(
-#         ForeignKey("strategy_versions.version_id"), nullable=False
-#     )
-#     size: Mapped[float] = mapped_column(Float, nullable=False)
-#     entry_price: Mapped[float] = mapped_column(Float, nullable=False)
-#     timestamp: Mapped[int] = mapped_column(
-#         Integer, nullable=False
-#     )  # Unix Epoch seconds
-
-#     # Relationships
-#     user: Mapped["Users"] = relationship(back_populates="positions")
-#     strategy_version: Mapped["StrategyVersions"] = relationship(
-#         back_populates="positions"
-#     )
+    deployments: Mapped[list["Deployments"]] = relationship(
+        back_populates="version", cascade="all, delete-orphan"
+    )
 
 
 class Positions(Base):
@@ -211,3 +194,27 @@ class Backtests(Base):
     strategy_version: Mapped["StrategyVersions"] = relationship(
         back_populates="backtests"
     )
+
+
+class Deployments(Base):
+    __tablename__ = "deployments"
+
+    deployment_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    account_id: Mapped[UUID] = mapped_column(
+        ForeignKey("accounts.account_id"), nullable=False
+    )
+    version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("strategy_versions.version_id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default=TaskStatus.PENDING.value
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=get_datetime
+    )
+
+    # Relationships
+    account: Mapped["Accounts"] = relationship(back_populates="deployments")
+    version: Mapped["StrategyVersions"] = relationship(back_populates="deployments")

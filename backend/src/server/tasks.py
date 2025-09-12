@@ -20,7 +20,7 @@ async def generate_strategy_code(version_id: UUID, prompt: str):
         cleaned_code = LLMService.clean_code(raw_code)
 
         async with get_db_sess() as db_sess:
-            await db_sess.execute( 
+            await db_sess.execute(
                 update(StrategyVersions)
                 .where(StrategyVersions.version_id == version_id)
                 .values(code=cleaned_code, status=TaskStatus.COMPLETED.value)
@@ -42,7 +42,7 @@ async def generate_strategy_code(version_id: UUID, prompt: str):
 
 def run_backtest(backtest_id: UUID, backtest_params: dict):
     logger.info(f"Starting backtest for backtest_id: {backtest_id}")
-    
+
     try:
         with get_db_sess_sync() as db_sess:
             backtest_run = db_sess.scalar(
@@ -57,7 +57,6 @@ def run_backtest(backtest_id: UUID, backtest_params: dict):
 
         bt_service = BacktestService()
         results = bt_service.run(strategy_code, backtest_params)
-
 
         with get_db_sess_sync() as db_sess:
             db_sess.execute(
