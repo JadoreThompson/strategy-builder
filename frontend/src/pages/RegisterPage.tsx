@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { HTTP_BASE_URL } from "@/config";
@@ -14,7 +14,7 @@ import { Link, useNavigate } from "react-router";
 
 const RegisterPage: FC = () => {
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
+  // const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ const RegisterPage: FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (!rsp.ok) {
@@ -45,7 +45,7 @@ const RegisterPage: FC = () => {
         throw new Error(data.detail || "Failed to create account.");
       }
 
-      navigate("/login");
+      navigate("/strategies");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred."
@@ -81,20 +81,6 @@ const RegisterPage: FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="yourusername"
-                required
-                disabled={isLoading}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="email">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
                 required
                 disabled={isLoading}
               />

@@ -115,6 +115,7 @@ async def get_deployments_for_version(
             deployment_id=d.deployment_id,
             account_id=d.account_id,
             account_name=acc_name,
+            instrument=d.instrument,
             version_id=d.version_id,
             status=d.status,
             created_at=d.created_at,
@@ -137,7 +138,11 @@ async def stop_deployment(
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    if deployment.status not in (DeploymentStatus.STOPPED, DeploymentStatus.FAILED):
+    if deployment.status not in (
+        DeploymentStatus.PENDING,
+        DeploymentStatus.STOPPED,
+        DeploymentStatus.FAILED,
+    ):
         raise HTTPException(
             status_code=400,
             detail=f"Deployment in status '{deployment.status}' cannot be stopped.",

@@ -211,6 +211,7 @@ class Deployments(Base):
         ForeignKey("strategy_versions.version_id"), nullable=False
     )
     instrument: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str] =  mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime

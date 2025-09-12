@@ -5,10 +5,21 @@ sys.path.append(r"{parent_folder}")
 
 def main():
     import os
-    
-    from core.enums import TradingPlatform, StrategyType
+    from sqlalchemy import update
+
+    from core.enums import TradingPlatform, StrategyType, DeploymentStatus
+    from db_models import Deployments
+    from utils import get_db_sess_sync
     from lib.exchanges import MT5FuturesExchange
     from lib.order_managers import MT5FuturesOrderManager
+
+    with get_db_sess_sync() as db_sess:
+        db_sess.execute(
+            update(Deployments)
+            .values(status=DeploymentStatus.DEPLOYED.value)
+            .where(Deployments.deployment_id == "{deployment_id}")
+        )
+        db_sess.commit()
 
     exchange = MT5FuturesExchange({creds})
     om = MT5FuturesOrderManager()

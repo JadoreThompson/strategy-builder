@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { HTTP_BASE_URL } from "@/config";
@@ -13,7 +13,7 @@ import { useState, type FC } from "react";
 import { Link, useNavigate } from "react-router";
 
 const LoginPage: FC = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,12 +29,12 @@ const LoginPage: FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (!rsp.ok) {
         const data = await rsp.json();
-        throw new Error(data.detail || "Invalid email or password.");
+        throw new Error(data.detail || "Invalid username or password.");
       }
 
       navigate("/strategies");
@@ -59,15 +59,15 @@ const LoginPage: FC = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="email">
-                Email
+              <label className="block text-sm font-medium mb-1" htmlFor="username">
+                Username
               </label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                id="username"
+                type="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="username"
                 required
                 disabled={isLoading}
               />

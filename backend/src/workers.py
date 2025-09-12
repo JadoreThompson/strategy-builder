@@ -5,8 +5,9 @@ from asyncio import Queue
 from queue import Empty
 
 import uvicorn
-from sqlalchemy import select
+from sqlalchemy import select, update
 
+from core.enums import DeploymentStatus
 from config import BASE_PATH, RESOURCES_PATH
 from core.typing import DeploymentPayload
 from db_models import Accounts, Deployments, StrategyVersions
@@ -26,7 +27,7 @@ def run_server(queue) -> None:
 
 def _handle_deployment(payload: DeploymentPayload) -> None:
     # Temp solution
-    
+
     with get_db_sess_sync() as db_sess:
         res = db_sess.execute(
             select(
@@ -54,6 +55,7 @@ def _handle_deployment(payload: DeploymentPayload) -> None:
     mainpy = open(os.path.join(RESOURCES_PATH, "deployment.txt"), "r").read()
     mainpy = mainpy.format(
         strategy_code=data.code,
+        deployment_id=payload.deployment_id,
         instrument=data.instrument,
         parent_folder=BASE_PATH,
         creds={"login": data.login, "password": data.password, "server": data.server},
@@ -65,6 +67,14 @@ def _handle_deployment(payload: DeploymentPayload) -> None:
         code = compile(mainpy, "<string>", "exec")
         res = exec(code, {})
     except Exception as e:
+        with get_db_sess_sync() as db_sess:
+            db_sess.execute(
+                update(Deployments)
+                .values(status=DeploymentStatus.FAILED.value, reason=str(e))
+                .where(Deployments.deployment_id == payload.deployment_id)
+            )
+            db_sess.commit()
+
         print(type(e), str(e))
 
 
