@@ -50,7 +50,7 @@ class Accounts(Base):
     # Relationships
     user: Mapped["Users"] = relationship(back_populates="accounts")
     deployments: Mapped[list["Deployments"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
+        back_populates="account", cascade="all, delete-orphan"
     )
 
 
