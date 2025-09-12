@@ -20,11 +20,13 @@ import { HTTP_BASE_URL } from "@/config";
 import useFetch from "@/hooks/useFetch";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import type { DeploymentStatus } from "@/lib/types/deploymentStatus";
+import type { Position } from "@/lib/types/position";
 import type { TaskStatus } from "@/lib/types/taskStatus";
 import {
   Ellipsis,
   MessageCircle,
   NotepadText,
+  Rocket,
   RotateCw,
   Trash2,
 } from "lucide-react";
@@ -32,26 +34,6 @@ import React, { useState, type FC } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-
-interface Position {
-  id: string;
-  instrument: string;
-  side: string;
-  order_type: string;
-  starting_amount: number;
-  current_amount: number | null;
-  price: number | null;
-  limit_price: number | null;
-  stop_price: number | null;
-  tp_price: number | null;
-  sl_price: number | null;
-  realised_pnl: number | null;
-  unrealised_pnl: number | null;
-  status: string;
-  created_at: string;
-  close_price: number | null;
-  closed_at: string | null;
-}
 
 const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
   const {
@@ -146,6 +128,69 @@ interface BacktestResult {
   created_at: string;
 }
 
+const CreateBacktestCard: FC<{
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
+  setShowCard: (arg: boolean) => void | Promise<void>;
+}> = ({ handleSubmit, setShowCard }) => {
+  return (
+    <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
+      <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
+        <h2 className="text-lg font-bold mb-4">Launch Backtest</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Instrument</label>
+            <input
+              type="text"
+              name="instrument"
+              placeholder="e.g. BTC/USDT"
+              className="w-full border rounded-md px-3 py-2"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Starting Balance
+            </label>
+            <input
+              type="number"
+              name="starting_balance"
+              placeholder="1000"
+              className="w-full border rounded-md px-3 py-2"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Leverage</label>
+            <input
+              type="number"
+              name="leverage"
+              placeholder="10"
+              className="w-full border rounded-md px-3 py-2"
+              required
+            />
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCard(false)}
+              className="px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="px-4 py-2 text-white rounded-md cursor-pointer"
+            >
+              Submit
+            </Button>
+          </div>
+        </form>
+      </div>
+    </Card>
+  );
+};
+
 const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
   const [counter, setCounter] = useState<number>(0);
 
@@ -194,65 +239,10 @@ const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
       {showCard &&
         typeof document !== "undefined" &&
         createPortal(
-          <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
-            <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
-              <h2 className="text-lg font-bold mb-4">Launch Backtest</h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Instrument
-                  </label>
-                  <input
-                    type="text"
-                    name="instrument"
-                    placeholder="e.g. BTC/USDT"
-                    className="w-full border rounded-md px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Starting Balance
-                  </label>
-                  <input
-                    type="number"
-                    name="starting_balance"
-                    placeholder="1000"
-                    className="w-full border rounded-md px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Leverage
-                  </label>
-                  <input
-                    type="number"
-                    name="leverage"
-                    placeholder="10"
-                    className="w-full border rounded-md px-3 py-2"
-                    required
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowCard(false)}
-                    className="px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="px-4 py-2 text-white rounded-md cursor-pointer"
-                  >
-                    Submit
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </Card>,
+          <CreateBacktestCard
+            handleSubmit={handleSubmit}
+            setShowCard={setShowCard}
+          />,
           document.body
         )}
 
@@ -266,7 +256,7 @@ const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
             <RotateCw />
           </Button>
           <Button onClick={() => setShowCard(true)} className="h-full">
-            Launch
+            Backtest
           </Button>
         </div>
       </div>
@@ -445,6 +435,15 @@ const StrategyVersion: FC = () => {
                     align="end"
                     forceMount
                   >
+                    <Button
+                      variant="secondary"
+                      className="w-full h-7 flex flex-row items-center justify-start p-0 gap-1 shadow-none bg-transparent hover:bg-stone-100 cursor-pointer"
+                    >
+                      <Rocket className="w-3 h-3" />
+                      <span className="p-0 !bg-transparent text-xs">
+                        Deploy
+                      </span>
+                    </Button>
                     <Button
                       variant="secondary"
                       onClick={() => setShowPrompt(true)}

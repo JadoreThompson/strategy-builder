@@ -26,6 +26,29 @@ class Users(Base):
     positions: Mapped[list["Positions"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    accounts: Mapped[list["Accounts"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Accounts(Base):
+    __tablename__ = "accounts"
+
+    account_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    login: Mapped[str] = mapped_column(String, nullable=False)
+    password: Mapped[str] = mapped_column(String, nullable=False)
+    server: Mapped[str] = mapped_column(String, nullable=False)
+    platform: Mapped[str] = mapped_column(String, nullable=False, default="mt5")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=get_datetime
+    )
+
+    # Relationships
+    user: Mapped["Users"] = relationship(back_populates="accounts")
 
 
 class Ticks(Base):

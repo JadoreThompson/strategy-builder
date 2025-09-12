@@ -2,4 +2,4 @@ from enum import Enum
 
 
 class TradingPlatform(Enum):
-    MT5 = 0
+    MT5 = 'mt5'

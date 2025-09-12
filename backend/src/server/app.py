@@ -3,15 +3,14 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from server.exc import JWTError
+from server.routes.accounts.route import route as account_router
 from server.routes.auth.route import route as auth_router
 from server.routes.strategy.route import route as strategy_router
 
 
-app = FastAPI(
-    title="Strategy Builder API",
-    version="0.0.0",
-)
+app = FastAPI(title="Strategy Builder API", version="0.0.0")
 
+app.include_router(account_router)
 app.include_router(auth_router)
 app.include_router(strategy_router)
 

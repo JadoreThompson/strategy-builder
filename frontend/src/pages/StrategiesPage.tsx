@@ -51,11 +51,7 @@ const StrategiesPage: FC = () => {
       <div className="w-full h-9 flex justify-between mb-3">
         <Link
           to="/create-strategy"
-          className="h-full w-20 flex items-center justify-center text-white font-medium p-1 cursor-pointer"
-          style={{
-            backgroundColor: "var(--primary)",
-            borderRadius: "var(--radius)",
-          }}
+          className="h-full w-20 flex items-center justify-center bg-primary text-white text-sm font-medium p-1 cursor-pointer"
         >
           Create
         </Link>

@@ -1,10 +1,10 @@
 from lib.enums import TradingPlatform
-from lib.order_managers import FuturesOrderManager, MT5OrderManager
+from lib.order_managers import FuturesOrderManager, MT5FuturesOrderManager
 
 
 class OrderManagerRegistry:
     _managers = {
-        TradingPlatform.MT5: MT5OrderManager,
+        TradingPlatform.MT5: MT5FuturesOrderManager,
     }
 
     @classmethod

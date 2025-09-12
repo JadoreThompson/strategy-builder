@@ -9,6 +9,7 @@ dependencies = [
     "alembic>=1.16.5",
     "asyncpg>=0.30.0",
     "fastapi>=0.116.1",
+    "kafka-python>=2.2.15",
     "matplotlib>=3.10.6",
     "metatrader5>=5.0.5200",
     "pandas>=2.3.2",

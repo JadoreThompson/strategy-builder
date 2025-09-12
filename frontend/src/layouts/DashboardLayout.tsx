@@ -19,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@radix-ui/react-popover";
-import { Lightbulb, Scale, Sword } from "lucide-react";
+import { Lightbulb, Scale, UserRoundPlus } from "lucide-react";
 import { Link } from "react-router";
 
 const DashboardSidebar = ({}: {}) => {
@@ -40,7 +40,7 @@ const DashboardSidebar = ({}: {}) => {
               {(
                 [
                   ["strategies", Lightbulb],
-                  ["positions", Sword],
+                  ["accounts", UserRoundPlus],
                 ] as [string, React.ForwardRefExoticComponent<any>][]
               ).map(([val, I]) => (
                 <SidebarMenuItem key={val}>
