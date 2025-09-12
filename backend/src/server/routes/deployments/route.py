@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import insert, select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import DEPLOYMENT_QUEUE
+from core.typing import DeploymentPayload
 from core.enums import DeploymentStatus, TaskStatus
 from db_models import Deployments, Accounts, StrategyVersions
 from server.dependencies import depends_db_sess, depends_jwt
@@ -39,6 +41,7 @@ async def create_deployment(
         .values(
             account_id=body.account_id,
             version_id=body.version_id,
+            instrument=body.instrument,
             status=TaskStatus.PENDING.value,
         )
         .returning(Deployments)
@@ -50,8 +53,13 @@ async def create_deployment(
         account_id=deployment.account_id,
         account_name=account.name,
         version_id=deployment.version_id,
+        instrument=deployment.instrument,
         status=deployment.status,
         created_at=deployment.created_at,
+    )
+
+    DEPLOYMENT_QUEUE.put_nowait(
+        DeploymentPayload(deployment_id=deployment.deployment_id)
     )
 
     await db_sess.commit()
@@ -142,4 +150,3 @@ async def stop_deployment(
     )
     await db_sess.commit()
     return {"message": "Deployment stopped successfully."}
-

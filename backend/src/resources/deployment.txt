@@ -1,0 +1,32 @@
+import sys
+sys.path.append(r"{parent_folder}")
+
+{strategy_code}
+
+def main():
+    import os
+    
+    print(1)
+
+    from core.enums import TradingPlatform, StrategyType
+    from lib.exchanges import MT5FuturesExchange
+    from lib.order_managers import MT5FuturesOrderManager
+
+    exchange = MT5FuturesExchange({{}})
+    om = MT5FuturesOrderManager()
+    om._exchange = exchange
+    print(2)
+
+    strat = UserStrategy(StrategyType.FUTURES, TradingPlatform.MT5, "{instrument}")
+    strat._om = om
+
+    print(3)
+    with strat:
+        print(Tick) 
+        for tick in exchange.subscribe("{instrument}"):
+            strat.run(tick)
+
+    print(4)
+
+print(Tick)
+main()

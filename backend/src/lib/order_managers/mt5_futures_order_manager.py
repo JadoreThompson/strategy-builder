@@ -1,11 +1,13 @@
+from dataclasses import asdict
 import logging
 from decimal import Decimal
 from typing import cast
 
 import MetaTrader5 as mt5
+from kafka import KafkaProducer
 
+from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_TOPIC
 from core.enums import OrderType, PositionStatus, Side
-from lib.exchanges import MT5FuturesExchange
 from lib.typing import MODIFY_SENTINEL, Position
 from .futures_order_manager import FuturesOrderManager
 
@@ -19,10 +21,12 @@ class MT5FuturesOrderManager(FuturesOrderManager):
     synchronizes account state, and manages a local cache of positions.
     """
 
-    def __init__(self, exchange: MT5FuturesExchange):
+    def __init__(self):
         super().__init__()
-        self._exchange = cast(MT5FuturesExchange, exchange)
         self._account_info = None
+        self._producer = KafkaProducer(
+            bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
+        )
 
     def login(self) -> bool:
         is_logged_in = self._exchange.login()
@@ -53,8 +57,9 @@ class MT5FuturesOrderManager(FuturesOrderManager):
             sl_price,
         )
         if pos:
-            self._positions[pos["id"]] = pos
-            return pos["id"]
+            self._positions[pos.id] = pos
+            self._producer.send(KAFKA_POSITIONS_TOPIC, asdict(pos))
+            return pos.id
         return None
 
     def modify_position(
@@ -89,7 +94,7 @@ class MT5FuturesOrderManager(FuturesOrderManager):
             logger.error(f"Position with ID {position_id} not found for closing.")
             return False
 
-        if pos["status"] == PositionStatus.PENDING:
+        if pos.status == PositionStatus.PENDING:
             logger.error(
                 f"Cannot close position {position_id} as it is a pending order. Use cancel_position instead."
             )
@@ -98,7 +103,7 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         success, _ = self._exchange.close_position(pos, amount)
 
         if success:
-            if amount == pos["starting_amount"]:
+            if amount == pos.starting_amount:
                 self._positions.pop(position_id, None)
             self._sync_positions()  # Resync state from terminal
 
@@ -117,7 +122,7 @@ class MT5FuturesOrderManager(FuturesOrderManager):
             logger.warning(
                 f"Order {position_id} not in local cache. Attempting cancellation anyway."
             )
-        elif pos["status"] != PositionStatus.PENDING:
+        elif pos.status != PositionStatus.PENDING:
             logger.error(
                 f"Cannot cancel position {position_id} as it is not a pending order."
             )
@@ -150,13 +155,13 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         if open_positions:
             for pos in open_positions:
                 position = self._mt5_pos_to_position(pos)
-                self._positions[position["id"]] = position
+                self._positions[position.id] = position
 
         pending_orders = mt5.orders_get()
         if pending_orders:
             for order in pending_orders:
                 position = self._mt5_order_to_position(order)
-                self._positions[position["id"]] = position
+                self._positions[position.id] = position
 
     @staticmethod
     def _mt5_pos_to_position(mt5_pos) -> Position:

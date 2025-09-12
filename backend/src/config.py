@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from datetime import timedelta
+from multiprocessing.queues import Queue
 from urllib.parse import quote
 
 from dotenv import load_dotenv
@@ -39,8 +40,17 @@ DB_ENGINE_SYNC = create_engine(
 )
 
 
+# Kafka
+KAFKA_POSITIONS_TOPIC = os.getenv("KAFKA_POSITIONS_TOPIC", "positions")  # Position updates from strategies
+KAFKA_HOST = os.getenv("KAFKA_HOST", 'localhost')
+KAFKA_PORT = int(os.getenv("KAFKA_PORT", "9092"))
+
+
 # Logging
-logging.basicConfig(filename="app.log", format="%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
+logging.basicConfig(
+    filename="app.log",
+    format="%(asctime)s - [%(levelname)s] - %(module)s - %(message)s",
+)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -58,3 +68,6 @@ if not os.path.exists(fpath):
     logger.warning(f"System prompt not found at {fpath}")
 else:
     SYSTEM_PROMPT = open(fpath, "r").read()
+
+
+DEPLOYMENT_QUEUE: Queue = None # Must be initialised one time by __main__.py

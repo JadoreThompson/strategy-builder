@@ -17,12 +17,10 @@ class Strategy:
         type: StrategyType,
         platform: TradingPlatform,
         instrument: str,
-        pip_size: float = 0.0001,
     ):
         self._type = type
         self._om = OrderManagerRegistry.get(platform)
         self._instrument = instrument.lower()
-        self._pip_size = pip_size
 
     @abstractmethod
     def run(self, tick: Tick): ...

@@ -160,6 +160,8 @@ class Positions(Base):
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # JSON string
+    extras: Mapped[str] = mapped_column(String, nullable=True)
 
     # Relationships
     user: Mapped["Users"] = relationship(back_populates="positions")
@@ -208,6 +210,7 @@ class Deployments(Base):
     version_id: Mapped[UUID] = mapped_column(
         ForeignKey("strategy_versions.version_id"), nullable=False
     )
+    instrument: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime

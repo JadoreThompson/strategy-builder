@@ -1,6 +1,10 @@
 from enum import Enum
 
 
+class TradingPlatform(Enum):
+    MT5 = "mt5"
+
+
 class StrategyType(Enum):
     FUTURES = 0
     SPOT = 1
@@ -25,15 +29,15 @@ class PositionStatus(Enum):
 
 
 class TaskStatus(str, Enum):
-    NOT_STARTED = 'not_started'
-    PENDING = 'pending'
-    COMPLETED = 'completed'
-    FAILED = 'failed'
-    
+    NOT_STARTED = "not_started"
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
 
 class DeploymentStatus(str, Enum):
-    NOT_DEPLOYED = 'not_deployed'
-    PENDING  = 'pending'
-    DEPLOYED = 'deployed'
-    STOPPED = 'stopped'
-    FAILED = 'failed'
+    NOT_DEPLOYED = "not_deployed"
+    PENDING = "pending"
+    DEPLOYED = "deployed"
+    STOPPED = "stopped"
+    FAILED = "failed"

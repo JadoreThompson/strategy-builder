@@ -1,9 +1,6 @@
 """
-An example of how backtests are run
+An example of how deployments are done
 """
-import os
-import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
 
 from decimal import Decimal
 
@@ -12,6 +9,10 @@ from sqlalchemy import select
 from core.enums import OrderType, Side, StrategyType
 from db_models import Ticks
 from lib import Strategy, TradingPlatform
+from lib.exchanges.mt5_futures_exchange import MT5FuturesExchange
+from lib.order_managers.mt5_futures_order_manager import (
+    MT5FuturesOrderManager,
+)
 from lib.typing import Tick
 from utils import get_db_sess_sync
 
@@ -64,24 +65,21 @@ class UserStrategy(Strategy):
 
 
 def main():
-    import pandas as pd
-    from config import RESOURCES_PATH
-    from lib import Backtest
+    import os
+    import sys
 
-    def startup(*args, **kw):
-        nonlocal strat
-        if not strat._om.login():
-            raise ValueError("Unsuccessful login")
+    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "src"))
 
-    fp = os.path.join(RESOURCES_PATH, "price-data", "EURUSD1.csv")
-    eur_df = pd.read_csv(fp)
-    eur_df.set_index("datetime", inplace=True)
+    exchange = MT5FuturesExchange({})
+    om = MT5FuturesOrderManager()
+    om._exchange = exchange
 
     strat = UserStrategy(StrategyType.FUTURES, TradingPlatform.MT5, "EURUSD")
-    strat.startup = startup
-    bt = Backtest(strat, df=eur_df)
-    results = bt.run()
-    print(results)
+    strat._om = om
+
+    with strat:
+        for tick in exchange.subscribe("EURUSD"):
+            strat.run(tick)
 
 
 if __name__ == "__main__":

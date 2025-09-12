@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from lib.enums import TradingPlatform
+
 
 class CustomBaseModel(BaseModel):
     model_config = {
@@ -19,3 +21,5 @@ class CustomBaseModel(BaseModel):
         return loads(self.model_dump_json())
 
 
+class DeploymentPayload(CustomBaseModel):
+    deployment_id: UUID
