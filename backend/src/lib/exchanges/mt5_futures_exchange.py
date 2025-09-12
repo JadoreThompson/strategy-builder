@@ -35,7 +35,7 @@ class MT5FuturesExchange(FuturesExchange):
             return True
 
         if not mt5.initialize(
-            login=self._login_creds.get("login"),
+            login=int(self._login_creds.get("login", "0")),
             server=self._login_creds.get("server"),
             password=self._login_creds.get("password"),
         ):

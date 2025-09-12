@@ -10,8 +10,9 @@ class LLMService:
         Returns:
             str: Raw prompt output
         """
-        example_code = """from decimal import Decimal
+        example_code = """
 from collections import deque
+from decimal import Decimal
 
 from core.enums import OrderType, Side, StrategyType
 from lib import Strategy, TradingPlatform
@@ -22,9 +23,9 @@ class UserStrategy(Strategy):
     A strategy that longs when the price is greater than the average of the last 3
     prices and shorts when it is lower.
     \"\"\"
-    def __init__(self, type, platform, instrument, pip_size=0.0001, avg_period=3):
+    def __init__(self, type, platform, instrument, avg_period=3):
         super().__init__(
-            type=type, platform=platform, instrument=instrument, pip_size=pip_size
+            type=type, platform=platform, instrument=instrument
         )
         self._prices = deque(maxlen=avg_period)
         self._avg_period = avg_period
