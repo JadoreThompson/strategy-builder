@@ -2,6 +2,8 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import AccountsPage from "./pages/AccountsPage";
 import CreateStrategyPage from "./pages/CreateStrategyPage";
 import CreateVersionPage from "./pages/CreateVersionPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import StrategiesPage from "./pages/StrategiesPage";
 import StrategyVersionPage from "./pages/StrategyVersionPage";
 import StrategyVersionsPage from "./pages/StrategyVersionsPage";
@@ -10,6 +12,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/create-strategy" element={<CreateStrategyPage />} />
         <Route path="/create-version" element={<CreateVersionPage />} />
