@@ -4,8 +4,8 @@ from uuid import uuid4
 from sqlalchemy import UUID, DateTime, Float, String, ForeignKey, Integer
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, relationship
 
-from utils import get_datetime
 from core.enums import PositionStatus, TaskStatus, DeploymentStatus
+from utils import get_datetime
 
 
 class Base(DeclarativeBase): ...
@@ -102,7 +102,7 @@ class StrategyVersions(Base):
         String, nullable=False, default=TaskStatus.NOT_STARTED.value
     )
     deployment_status: Mapped[str] = mapped_column(
-        String, nullable=False, default=DeploymentStatus.NOT_DEPLOYED.value
+        String, nullable=False, default="not_deployed"
     )
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=TaskStatus.PENDING.value
@@ -208,9 +208,7 @@ class Deployments(Base):
     version_id: Mapped[UUID] = mapped_column(
         ForeignKey("strategy_versions.version_id"), nullable=False
     )
-    status: Mapped[str] = mapped_column(
-        String, nullable=False, default=TaskStatus.PENDING.value
-    )
+    status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime
     )

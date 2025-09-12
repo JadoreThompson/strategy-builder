@@ -32,6 +32,8 @@ class TaskStatus(str, Enum):
     
 
 class DeploymentStatus(str, Enum):
-    NOT_DEPLOYED  = 'not_deployed'
+    NOT_DEPLOYED = 'not_deployed'
+    PENDING  = 'pending'
     DEPLOYED = 'deployed'
+    STOPPED = 'stopped'
     FAILED = 'failed'

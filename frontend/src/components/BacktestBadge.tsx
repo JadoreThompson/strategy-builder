@@ -5,7 +5,7 @@ const BacktestBadge: FC<{ status: TaskStatus; className: string }> = ({
   status,
   className = "",
 }) => {
-  const getBacktestIconColor = (status: TaskStatus) => {
+  const getIconColor = (status: TaskStatus) => {
     switch (status) {
       case "not_started":
         return "bg-gray-200/50 text-gray-500";
@@ -21,7 +21,7 @@ const BacktestBadge: FC<{ status: TaskStatus; className: string }> = ({
   };
 
   return (
-    <span className={`${getBacktestIconColor(status)} ${className}`}>
+    <span className={`${getIconColor(status)} ${className}`}>
       {(() => {
         const s = status.toString();
         return s.charAt(0).toUpperCase() + s.slice(1);

@@ -17,17 +17,11 @@ import {
 import { HTTP_BASE_URL } from "@/config";
 import useFetch from "@/hooks/useFetch";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
+import type { AccountResponse } from "@/lib/types/accountResponse";
 import { Ellipsis, Pencil, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState, type FC } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router";
-
-interface AccountResponse {
-  account_id: string;
-  name: string;
-  platform: string;
-  created_at: string;
-}
+import { Link } from "react-router";
 
 interface AccountDetailResponse extends AccountResponse {
   login: string;
@@ -90,7 +84,7 @@ const AccountFormModal: FC<{
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Name</label>
-            <input
+            <Input
               type="text"
               name="name"
               defaultValue={initialData?.name}
@@ -101,7 +95,7 @@ const AccountFormModal: FC<{
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Login</label>
-            <input
+            <Input
               type="text"
               name="login"
               defaultValue={initialData?.login}
@@ -112,7 +106,7 @@ const AccountFormModal: FC<{
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Password</label>
-            <input
+            <Input
               type="password"
               name="password"
               placeholder={
@@ -124,7 +118,7 @@ const AccountFormModal: FC<{
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Server</label>
-            <input
+            <Input
               type="text"
               name="server"
               defaultValue={initialData?.server}
@@ -196,7 +190,7 @@ const DeleteConfirmationModal: FC<{
     }
   };
 
-  return createPortal(
+  return (
     <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
       <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
         <h2 className="text-lg font-bold mb-4">Delete Account</h2>
@@ -227,14 +221,11 @@ const DeleteConfirmationModal: FC<{
           </Button>
         </div>
       </div>
-    </Card>,
-    document.body
+    </Card>
   );
 };
 
 const AccountsPage: FC = () => {
-  const navigate = useNavigate();
-
   const [searchText, setSearchText] = useState<string>("");
   const [showCreateCard, setShowCreateCard] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -253,17 +244,6 @@ const AccountsPage: FC = () => {
     params.append("_", String(refetchTrigger));
     return `${HTTP_BASE_URL}/accounts?${params.toString()}`;
   }, [searchText, refetchTrigger]);
-
-  // const data: AccountResponse[] = [
-  //   {
-  //     account_id: "df46acb0-bb80-457d-9bc8-5679943453a7",
-  //     name: "Jeff",
-  //     platform: "mt5",
-  //     created_at: " 2025-09-11 15:55:24.420587+01",
-  //   },
-  // ];
-
-  // const isLoading = false;
 
   const { data, loading: isLoading } = useFetch<AccountResponse[]>(url, {
     credentials: "include",
@@ -328,16 +308,19 @@ const AccountsPage: FC = () => {
           />,
           document.body
         )}
-      {isDeleting && focusedAcc && (
-        <DeleteConfirmationModal
-          account={focusedAcc}
-          onClose={() => {
-            setIsDeleting(false);
-            setFocusedAcc(null);
-          }}
-          onSuccess={handleSuccess}
-        />
-      )}
+      {isDeleting &&
+        focusedAcc &&
+        createPortal(
+          <DeleteConfirmationModal
+            account={focusedAcc}
+            onClose={() => {
+              setIsDeleting(false);
+              setFocusedAcc(null);
+            }}
+            onSuccess={handleSuccess}
+          />,
+          document.body
+        )}
 
       <h1 className="text-2xl font-semibold mb-3">Accounts</h1>
       <div className="w-full h-9 flex justify-between mb-3">

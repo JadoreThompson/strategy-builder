@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { HTTP_BASE_URL } from "@/config";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { useState, type FC } from "react";
@@ -43,7 +44,7 @@ const CreateStrategyPage: FC = () => {
             <label className="block text-sm font-medium mb-1">
               Strategy Name
             </label>
-            <input
+            <Input
               type="text"
               placeholder="Enter strategy name"
               value={name}

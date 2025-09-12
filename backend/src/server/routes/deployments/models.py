@@ -1,7 +1,8 @@
 from uuid import UUID
 from datetime import datetime
+
+from core.enums import DeploymentStatus
 from core.typing import CustomBaseModel
-from core.enums import TaskStatus
 
 
 class DeploymentCreate(CustomBaseModel):
@@ -12,6 +13,7 @@ class DeploymentCreate(CustomBaseModel):
 class DeploymentResponse(CustomBaseModel):
     deployment_id: UUID
     account_id: UUID
+    account_name: str
     version_id: UUID
-    status: TaskStatus
+    status: DeploymentStatus
     created_at: datetime

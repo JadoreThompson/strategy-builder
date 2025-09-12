@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { HTTP_BASE_URL } from "@/config";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { useEffect, useState, type FC } from "react";
@@ -27,7 +28,7 @@ const CreateVersionPage: FC = () => {
     e.preventDefault();
 
     if (!strategyId) return;
-    
+
     setLoading(true);
 
     const rsp = await fetch(HTTP_BASE_URL + "/strategies", {
@@ -57,7 +58,7 @@ const CreateVersionPage: FC = () => {
             <label className="block text-sm font-medium mb-1">
               Version Name
             </label>
-            <input
+            <Input
               type="text"
               placeholder="Enter version name"
               value={name}

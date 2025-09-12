@@ -1,6 +1,8 @@
 import BacktestBadge from "@/components/BacktestBadge";
+import DeploymentsTable from "@/components/DeploymentsTable";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -139,7 +141,7 @@ const CreateBacktestCard: FC<{
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Instrument</label>
-            <input
+            <Input
               type="text"
               name="instrument"
               placeholder="e.g. BTC/USDT"
@@ -151,7 +153,7 @@ const CreateBacktestCard: FC<{
             <label className="block text-sm font-medium mb-1">
               Starting Balance
             </label>
-            <input
+            <Input
               type="number"
               name="starting_balance"
               placeholder="1000"
@@ -161,7 +163,7 @@ const CreateBacktestCard: FC<{
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Leverage</label>
-            <input
+            <Input
               type="number"
               name="leverage"
               placeholder="10"
@@ -219,7 +221,7 @@ const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify(fd),
+        body: JSON.stringify(Object.fromEntries(fd.entries())),
       }
     );
 
@@ -255,7 +257,10 @@ const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
           >
             <RotateCw />
           </Button>
-          <Button onClick={() => setShowCard(true)} className="h-full">
+          <Button
+            onClick={() => setShowCard(true)}
+            className="h-full cursor-pointer"
+          >
             Backtest
           </Button>
         </div>
@@ -350,7 +355,7 @@ type Tab = (typeof TABS)[number];
 
 const DEFAULT_TAB = TABS[0];
 
-const StrategyVersion: FC = () => {
+const StrategyVersionPage: FC = () => {
   const { versionId } = useParams();
   const navigate = useNavigate();
   const { data, loading } = useFetch<StrategyVersionResponse>(
@@ -500,9 +505,11 @@ const StrategyVersion: FC = () => {
       </div>
       <div className="w-full h-fit max-w-7xl mx-auto mb-3">
         {tab === "Backtests" && <BacktestsTable versionId={versionId!} />}
+        {tab === "Deployments" && <DeploymentsTable versionId={versionId!} />}
         {tab === "Positions" && <PositionsTable versionId={versionId!} />}
       </div>
     </DashboardLayout>
   );
 };
-export default StrategyVersion;
+
+export default StrategyVersionPage;

@@ -1,10 +1,10 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import insert, select, delete
+from sqlalchemy import insert, select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.enums import TaskStatus
+from core.enums import DeploymentStatus, TaskStatus
 from db_models import Deployments, Accounts, StrategyVersions
 from server.dependencies import depends_db_sess, depends_jwt
 from server.typing import JWTPayload
@@ -48,6 +48,7 @@ async def create_deployment(
     dep_rsp = DeploymentResponse(
         deployment_id=deployment.deployment_id,
         account_id=deployment.account_id,
+        account_name=account.name,
         version_id=deployment.version_id,
         status=deployment.status,
         created_at=deployment.created_at,
@@ -58,61 +59,64 @@ async def create_deployment(
     return dep_rsp
 
 
-@route.get("/{version_id}", response_model=list[DeploymentResponse])
-async def get_deployments(
-    version_id: UUID | None = None,
-    jwt: JWTPayload = Depends(depends_jwt),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    q = select(Deployments).where(
-        Deployments.account_id.in_(
-            select(Accounts.account_id).where(Accounts.user_id == jwt.sub)
-        )
-    )
-
-    if version_id:
-        q = q.where(Deployments.version_id == version_id)
-
-    res = await db_sess.scalars(q)
-    deployments = res.all()
-    
-    return [
-        DeploymentResponse(
-            deployment_id=d.deployment_id,
-            account_id=d.account_id,
-            version_id=d.version_id,
-            status=d.status,
-            created_at=d.created_at,
-        )
-        for d in deployments
-    ]
-
-
 @route.get("/{deployment_id}", response_model=DeploymentResponse)
 async def get_deployment(
     deployment_id: UUID,
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
-    deployment = await db_sess.scalar(
-        select(Deployments)
+    res = await db_sess.execute(
+        select(Deployments, Accounts.name)
         .join(Accounts)
         .where(Deployments.deployment_id == deployment_id, Accounts.user_id == jwt.sub)
     )
-    if not deployment:
+    data = res.first()
+    if not data or len(data) != 2:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
+    deployment, name = data
     return DeploymentResponse(
         deployment_id=deployment.deployment_id,
         account_id=deployment.account_id,
+        account_name=name,
         version_id=deployment.version_id,
         status=deployment.status,
         created_at=deployment.created_at,
     )
 
 
-@route.delete("/{deployment_id}")
-async def delete_deployment(
+@route.get("/by-version/{version_id}", response_model=list[DeploymentResponse])
+async def get_deployments_for_version(
+    version_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    q = (
+        select(Deployments, Accounts.name)
+        .join(Accounts)
+        .where(
+            Deployments.version_id == version_id,
+            Accounts.user_id == jwt.sub,
+        )
+    )
+    res = await db_sess.execute(q)
+    deployments = res.all()
+
+    return [
+        DeploymentResponse(
+            deployment_id=d.deployment_id,
+            account_id=d.account_id,
+            account_name=acc_name,
+            version_id=d.version_id,
+            status=d.status,
+            created_at=d.created_at,
+        )
+        for d, acc_name in deployments
+    ]
+
+
+@route.post("/{deployment_id}/stop")
+async def stop_deployment(
     deployment_id: UUID,
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
@@ -125,6 +129,17 @@ async def delete_deployment(
     if not deployment:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    await db_sess.delete(deployment)
+    if deployment.status not in (DeploymentStatus.STOPPED, DeploymentStatus.FAILED):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Deployment in status '{deployment.status}' cannot be stopped.",
+        )
+
+    await db_sess.execute(
+        update(Deployments)
+        .where(Deployments.deployment_id == deployment_id)
+        .values(status=DeploymentStatus.STOPPED.value)
+    )
     await db_sess.commit()
-    return {"message": "Successfully deleted deployment"}
+    return {"message": "Deployment stopped successfully."}
+
