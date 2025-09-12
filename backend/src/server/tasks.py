@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 async def generate_strategy_code(version_id: UUID, prompt: str):
     logger.info(f"Starting strategy generation for version_id: {version_id}")
     try:
-        raw_code = await LLMService.generate_code(prompt)
-        cleaned_code = LLMService.clean_code(raw_code)
+        success, txt = await LLMService.generate_code(prompt)
+        if not success:
+            raise Exception(txt)
+
+        cleaned_code = LLMService.clean_code(txt)
 
         async with get_db_sess() as db_sess:
             await db_sess.execute(

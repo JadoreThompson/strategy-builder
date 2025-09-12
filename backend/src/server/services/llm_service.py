@@ -1,6 +1,13 @@
+from aiohttp import ClientSession
+
+from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME, SYSTEM_PROMPT
+
+
 class LLMService:
+    _http_sess: ClientSession | None = None
+
     @staticmethod
-    async def generate_code(prompt: str) -> str:
+    async def generate_sample_code(prompt: str) -> str:
         """
         Fetches a code gen response from LLM.
 
@@ -62,6 +69,31 @@ class UserStrategy(Strategy):
             )
 """
         return example_code
+
+    @classmethod
+    async def generate_code(cls, prompt: str) -> tuple[bool, str]:
+        # TODO: Support streaming
+        if cls._http_sess is None:
+            cls._http_sess = ClientSession(
+                base_url=LLM_BASE_URL + "/",
+                headers={"Authorization": f"Bearer {LLM_API_KEY}"},
+            )
+
+        rsp = await cls._http_sess.post(
+            "chat/completions",
+            json={
+                "model": LLM_MODEL_NAME,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+            },
+        )
+
+        if rsp.status == 200:
+            data = await rsp.json()
+            return (True, data["choices"][0]["message"]["content"])
+        return (False, f"Error code {rsp.status}")
 
     @staticmethod
     def clean_code(raw_code: str) -> str:

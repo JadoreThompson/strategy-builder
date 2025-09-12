@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from decimal import Decimal
 from typing import Generator, TypedDict
 
@@ -50,7 +51,8 @@ class MT5FuturesExchange(FuturesExchange):
         """
         Subscribes to the price stream for a given instrument.
         """
-        if not self._is_logged_in:
+
+        if not self.login():
             logger.error("Not logged into MetaTrader 5.")
             return
 
@@ -67,8 +69,11 @@ class MT5FuturesExchange(FuturesExchange):
             tick = mt5.symbol_info_tick(instrument)
 
             if tick:
-                # Using midprice as last price
-                self._last_tick = Tick(last=(tick.bid + tick.ask) / 2, time=tick.time)
+                # Using mid price as last price
+                self._last_tick = Tick(
+                    last=(tick.bid + tick.ask) / 2,
+                    time=datetime.fromtimestamp(tick.time),
+                )
                 yield self._last_tick
 
     def open_position(
@@ -103,13 +108,13 @@ class MT5FuturesExchange(FuturesExchange):
                 logger.error(f"Could not retrieve tick for {instrument}")
                 return None
             price = symbol_info_tick.ask if side == Side.BID else symbol_info_tick.bid
-        
+
         elif order_type == OrderType.LIMIT:
             if limit_price is None:
                 logger.error("Limit price must be set for a limit order.")
                 return None
             price = limit_price
-        
+
         elif order_type == OrderType.STOP:
             if stop_price is None:
                 logger.error("Stop price must be set for a stop order.")

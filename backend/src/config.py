@@ -17,8 +17,22 @@ PRODUCTION = False
 BASE_PATH = os.path.dirname(__file__)
 RESOURCES_PATH = os.path.join(BASE_PATH, "resources")
 
-
 load_dotenv(os.path.join(BASE_PATH, ".env"))
+
+
+# Logging
+logging.basicConfig(
+    filename="app.log",
+    format="%(asctime)s - [%(levelname)s] - %(module)s - %(message)s",
+)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(
+    logging.Formatter("%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
+)
+logger.addHandler(handler)
 
 
 # Auth
@@ -41,27 +55,19 @@ DB_ENGINE_SYNC = create_engine(
 
 
 # Kafka
-KAFKA_POSITIONS_TOPIC = os.getenv("KAFKA_POSITIONS_TOPIC", "positions")  # Position updates from strategies
-KAFKA_HOST = os.getenv("KAFKA_HOST", 'localhost')
+KAFKA_POSITIONS_TOPIC = os.getenv(
+    "KAFKA_POSITIONS_TOPIC", "positions"
+)  # Position updates from strategies
+KAFKA_HOST = os.getenv("KAFKA_HOST", "localhost")
 KAFKA_PORT = int(os.getenv("KAFKA_PORT", "9092"))
 
 
-# Logging
-logging.basicConfig(
-    filename="app.log",
-    format="%(asctime)s - [%(levelname)s] - %(module)s - %(message)s",
-)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+# LLM
+LLM_API_KEY = os.getenv("LLM_API_KEY")
+LLM_AGENT_ID = os.getenv("LLM_AGENT_ID")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "devstral-small-latest")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.mistral.ai/v1")
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(
-    logging.Formatter("%(asctime)s - [%(levelname)s] - %(module)s - %(message)s")
-)
-logger.addHandler(handler)
-
-
-# Resources
 fpath = os.path.join(RESOURCES_PATH, "system-prompt.txt")
 if not os.path.exists(fpath):
     SYSTEM_PROMPT = None
@@ -70,4 +76,8 @@ else:
     SYSTEM_PROMPT = open(fpath, "r").read()
 
 
-DEPLOYMENT_QUEUE: Queue = None # Must be initialised one time by __main__.py
+class Dummy:
+    def put_nowait(self, *args, **kw):
+        ...
+        
+DEPLOYMENT_QUEUE: Queue = Dummy()  # Must be initialised one time by __main__.py
