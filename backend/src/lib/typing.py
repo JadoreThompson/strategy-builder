@@ -2,9 +2,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal, NamedTuple
+from uuid import UUID
 
 from core.enums import OrderType, PositionStatus, Side
-from core.typing import CustomBaseModel
+from core.typing import CustomBaseModel, Position
 from utils import get_datetime
 
 
@@ -63,13 +64,14 @@ class MSS(NamedTuple):
 #         self.current_amount = self.starting_amount
 
 
-@dataclass
-class BacktestResult:
+class BacktestResult(CustomBaseModel):
+    backtest_id: str
     total_pnl: Decimal
     starting_balance: Decimal
     end_balance: Decimal
     total_trades: int
     win_rate: float
+    trades: list[Position]
 
 
 MODIFY_SENTINEL = "*"

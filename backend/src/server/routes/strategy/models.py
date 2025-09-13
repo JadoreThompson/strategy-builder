@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Union
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import BaseModel, field_validator
 
 from core.enums import TaskStatus, DeploymentStatus
 from core.typing import CustomBaseModel
@@ -77,6 +77,12 @@ class BacktestResult(CustomBaseModel):
 class BacktestResultResponse(BacktestResult):
     backtest_id: UUID
     version_id: UUID
+
+
+class BacktestPositionsChartResponse(BaseModel):
+    date: date
+    balance: float
+    pnl: float
 
 
 # ---- POSITIONS ----

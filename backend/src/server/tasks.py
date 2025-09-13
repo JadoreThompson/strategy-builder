@@ -1,11 +1,11 @@
 import logging
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.orm import selectinload
 
 from core.enums import TaskStatus
-from db_models import StrategyVersions, Backtests
+from db_models import BacktestPositions, StrategyVersions, Backtests
 from server.services import BacktestService, LLMService
 from utils import get_db_sess, get_db_sess_sync
 
@@ -58,8 +58,11 @@ def run_backtest(backtest_id: UUID, backtest_params: dict):
 
             strategy_code = backtest_run.strategy_version.code
 
-        bt_service = BacktestService()
+        bt_service = BacktestService()        
         results = bt_service.run(strategy_code, backtest_params)
+
+        results.pop('backtest_id')
+        positions = results.pop("positions")
 
         with get_db_sess_sync() as db_sess:
             db_sess.execute(
@@ -67,6 +70,7 @@ def run_backtest(backtest_id: UUID, backtest_params: dict):
                 .where(Backtests.backtest_id == backtest_id)
                 .values(**results, status=TaskStatus.COMPLETED.value)
             )
+            db_sess.execute(insert(BacktestPositions), positions)
             db_sess.commit()
 
         logger.info(f"Successfully completed backtest for backtest_id: {backtest_id}")

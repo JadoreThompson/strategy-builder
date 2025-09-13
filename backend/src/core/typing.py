@@ -34,8 +34,6 @@ class DeploymentPayload(CustomBaseModel):
 
 
 # TODO: Add support for partials
-
-
 class Position(CustomBaseModel):
     position_id: str # DB id
     instrument: str
@@ -56,7 +54,7 @@ class Position(CustomBaseModel):
     closed_at: datetime | None = None
     extras: dict | None = None # Extra platform specific data
 
-    def __post_init_post_parse__(self):
+    def model_post_init(self, context):
         self.current_amount = self.starting_amount
 
 

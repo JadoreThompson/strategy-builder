@@ -196,6 +196,51 @@ class Backtests(Base):
     strategy_version: Mapped["StrategyVersions"] = relationship(
         back_populates="backtests"
     )
+    backtest_positions: Mapped[list["BacktestPositions"]] = relationship(
+        back_populates="backtest", cascade="all, delete-orphan"
+    )
+
+
+class BacktestPositions(Base):
+    __tablename__ = "backtest_positions"
+
+    position_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    backtest_id: Mapped[UUID] = mapped_column(
+        ForeignKey("backtests.backtest_id"), nullable=False
+    )
+    instrument: Mapped[str] = mapped_column(String, nullable=False)
+    side: Mapped[str] = mapped_column(String, nullable=False)
+    order_type: Mapped[str] = mapped_column(String, nullable=False)
+    starting_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    current_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    limit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    stop_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    tp_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sl_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    realised_pnl: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=0.0
+    )
+    unrealised_pnl: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=0.0
+    )
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default=PositionStatus.PENDING.value
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=get_datetime
+    )
+    close_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # JSON string
+    extras: Mapped[str] = mapped_column(String, nullable=True)
+
+    # Relationships
+    backtest: Mapped["Backtests"] = relationship(back_populates="backtest_positions")
 
 
 class Deployments(Base):
@@ -211,7 +256,7 @@ class Deployments(Base):
         ForeignKey("strategy_versions.version_id"), nullable=False
     )
     instrument: Mapped[str] = mapped_column(String, nullable=False)
-    reason: Mapped[str] =  mapped_column(String, nullable=True)
+    reason: Mapped[str] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime

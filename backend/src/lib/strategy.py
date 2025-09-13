@@ -14,7 +14,7 @@ class Strategy:
 
     _om: FuturesOrderManager | None = None  # must be set after init
 
-    def __init__(self, type: StrategyType, instrument: str):
+    def __init__(self, type: StrategyType, instrument: str, **kw):
         self._type = type
         self._instrument = instrument.lower()
 

@@ -61,5 +61,5 @@ async def main1():
 
 
 if __name__ == "__main__":
-    # main0()
-    asyncio.run(main1())
+    main0()
+    # asyncio.run(main1())

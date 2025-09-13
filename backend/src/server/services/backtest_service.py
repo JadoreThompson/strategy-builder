@@ -1,16 +1,16 @@
+import json
 import os
 import subprocess
 import sys
 import tempfile
-from decimal import Decimal
 from typing import TypedDict
+from uuid import UUID
 
 from config import BASE_PATH
-from core.enums import StrategyType
-from lib.enums import TradingPlatform
 
 
 class BakcktestParams(TypedDict):
+    backtest_id: UUID
     instrument: str
     leverage: int
     starting_balance: float
@@ -22,6 +22,7 @@ class BacktestService:
         strategy_code: str, backtest_params: BakcktestParams
     ) -> str:
         runner_template = f"""
+import json
 import os
 import sys
 import pandas as pd
@@ -45,11 +46,11 @@ def run():
 
     strat = UserStrategy(
         type=StrategyType.FUTURES,
-        platform=TradingPlatform.MT5,
         instrument="{backtest_params['instrument']}"
     )
     
     bt = Backtest(
+        "{backtest_params['backtest_id']}",
         strat, 
         df=data_df, 
         starting_balance={backtest_params['starting_balance']},
@@ -57,47 +58,43 @@ def run():
     )
     results = bt.run()
     
-    # Print results in a machine-readable format for parsing
-    print(f"PNL:{{results.total_pnl}}")
-    print(f"START_BALANCE:{{results.starting_balance}}")
-    print(f"END_BALANCE:{{results.end_balance}}")
-    print(f"TOTAL_TRADES:{{results.total_trades}}")
-    print(f"WIN_RATE:{{results.win_rate}}")
+    #print(json.dumps(results.__dict__))    
+    print(results.model_dump_json())
 
 if __name__ == "__main__":
     run()
 """
+
         return runner_template
 
     @staticmethod
     def _parse_output(output: str) -> dict:
-        results = {}
-        for line in output.strip().splitlines():
-            if ":" in line:
-                key, value = line.split(":", 1)
-                key_map = {
-                    "PNL": "total_pnl",
-                    "START_BALANCE": "starting_balance",
-                    "END_BALANCE": "end_balance",
-                    "TOTAL_TRADES": "total_trades",
-                    "WIN_RATE": "win_rate",
-                }
-                db_key = key_map.get(key.strip())
-                if db_key:
-                    val = value.strip()
-                    if db_key in ["total_pnl", "starting_balance", "end_balance"]:
-                        results[db_key] = Decimal(val)
-                    elif db_key == "total_trades":
-                        results[db_key] = int(val)
-                    elif db_key == "win_rate":
-                        results[db_key] = float(val)
-        return results
+        result: dict = json.loads(output)
+
+        for key in ("total_pnl", "starting_balance", "end_balance"):
+            result[key] = round(float(result[key]), 2)
+
+        result["win_rate"] *= 100
+        backtest_id = result["backtest_id"]
+
+        for t in result["trades"]:
+            t["backtest_id"] = backtest_id
+            for key in (
+                "starting_amount",
+                "current_amount",
+                "unrealised_pnl",
+                "realised_pnl",
+            ):
+                t[key] = round(float(t[key]), 2)
+
+        return result
 
     def run(self, strategy_code: str, backtest_params: BakcktestParams) -> dict:
         with tempfile.TemporaryDirectory() as tmpdir:
             runner_script_content = self._create_runner_script(
                 strategy_code, backtest_params
             )
+
             script_path = os.path.join(tmpdir, "backtest_runner.py")
             with open(script_path, "w") as f:
                 f.write(runner_script_content)

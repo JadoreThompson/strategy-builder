@@ -1,3 +1,4 @@
+from datetime import timedelta
 import json
 from asyncio import TimeoutError as AIOTimeoutError
 from uuid import UUID
@@ -16,7 +17,13 @@ from sqlalchemy import insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.enums import TaskStatus
-from db_models import Positions, Strategies, StrategyVersions, Backtests
+from db_models import (
+    BacktestPositions,
+    Positions,
+    Strategies,
+    StrategyVersions,
+    Backtests,
+)
 from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.exc import JWTError
@@ -26,6 +33,7 @@ from .connection_manager import ConnectionManager
 from .models import (
     BacktestCreate,
     BacktestCreateResponse,
+    BacktestPositionsChartResponse,
     BacktestResult,
     BacktestResultResponse,
     Position,
@@ -272,9 +280,9 @@ async def create_backtest(
     bt_dict.pop("_sa_instance_state", None)
     await db_sess.commit()
 
-    background_tasks.add_task(
-        tasks.run_backtest, bt_dict["backtest_id"], body.model_dump()
-    )
+    bt_params = body.model_dump()
+    bt_params["backtest_id"] = str(bt_dict["backtest_id"])
+    background_tasks.add_task(tasks.run_backtest, bt_dict["backtest_id"], bt_params)
 
     return bt_dict
 
@@ -328,6 +336,76 @@ async def get_backtest_result(
     if not backtest:
         raise HTTPException(status_code=404, detail="Backtest not found.")
     return backtest
+
+
+@route.get(
+    "/backtests/{backtest_id}/positions-chart",
+    response_model=list[BacktestPositionsChartResponse],
+)
+async def get_backtest_positions_chart(
+    backtest_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    query = (
+        select(Backtests)
+        .join(StrategyVersions)
+        .join(Strategies)
+        .where(Backtests.backtest_id == backtest_id, Strategies.user_id == jwt.sub)
+    )
+    backtest = (await db_sess.execute(query)).scalar_one_or_none()
+    if not backtest:
+        raise HTTPException(status_code=404, detail="Backtest not found.")
+
+    res = await db_sess.execute(
+        select(BacktestPositions)
+        .where(BacktestPositions.backtest_id == backtest_id)
+        .order_by(BacktestPositions.created_at)
+    )
+    positions = res.scalars().all()
+    if not positions:
+        return []
+
+    start_date, end_date = positions[0].closed_at, positions[-1].closed_at
+    splits = 6
+    interval: timedelta = (
+        (end_date - start_date) / splits if end_date > start_date else timedelta(days=1)
+    )
+
+    chart: list[BacktestPositionsChartResponse] = [
+        BacktestPositionsChartResponse(
+            date=start_date.date(), balance=backtest.starting_balance, pnl=0.0
+        )
+    ]
+
+    cur_balance = backtest.starting_balance
+    cur_pnl = 0.0
+    next_date = start_date + interval
+
+    for pos in positions:
+        if pos.closed_at is None:
+            continue
+
+        while pos.closed_at >= next_date:
+            chart.append(
+                BacktestPositionsChartResponse(
+                    date=next_date.date(), balance=cur_balance, pnl=cur_pnl
+                )
+            )
+            next_date += interval
+
+        cur_balance += pos.realised_pnl
+        cur_pnl += pos.realised_pnl
+
+    # Add final point if missing
+    if chart[-1].date < end_date.date():
+        chart.append(
+            BacktestPositionsChartResponse(
+                date=end_date.date(), balance=cur_balance, pnl=cur_pnl
+            )
+        )
+
+    return chart
 
 
 # ---- POSITIONS ----

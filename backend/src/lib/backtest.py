@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import UUID
 
 import pandas as pd
 
@@ -17,12 +18,14 @@ class Backtest:
 
     def __init__(
         self,
+        backtest_id: UUID,
         strat: Strategy,
         df_path: str | None = None,
         df: pd.DataFrame | None = None,
         starting_balance: float = 100_000,
         leverage: int = 10,
     ) -> None:
+        self._backtest_id = backtest_id
         self._starting_balance = starting_balance
         self._om = BacktestFuturesOrderManager(
             starting_balance=starting_balance, leverage=leverage
@@ -48,6 +51,7 @@ class Backtest:
                 self._om.perform_risk_checks(tick)
                 self._strat.run(tick)
 
+
         return self._get_backtest_result()
 
     def _get_backtest_result(self):
@@ -67,10 +71,12 @@ class Backtest:
             total_pnl += pos.realised_pnl
 
         res = BacktestResult(
+            backtest_id=self._backtest_id,
             total_pnl=total_pnl,
             starting_balance=self._starting_balance,
             end_balance=self._om._balance,
             total_trades=total_trades,
             win_rate=win_rate,
+            trades=self._om._closed_positions + [*self._om.positions],
         )
         return res

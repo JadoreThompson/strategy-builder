@@ -48,10 +48,8 @@ from lib.typing import Tick
 from utils import get_db_sess_sync
 
 class UserStrategy(Strategy):
-    def __init__(self, type, platform, instrument):
-        super().__init__(
-            type=type, platform=platform, instrument=instrument
-        )
+    def __init__(self, type, instrument):
+        super().__init__(type=type, instrument=instrument)
         self._last_price: float | None = None
         self._placed = False
 
