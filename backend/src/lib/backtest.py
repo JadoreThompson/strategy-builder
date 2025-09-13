@@ -41,7 +41,7 @@ class Backtest:
                         if (pos.sl_price is not None and pos.sl_price == tick.last) or (
                             pos.tp_price is not None and pos.tp_price == tick.last
                         ):
-                            self._om.close_position(pos.id, pos.current_amount)
+                            self._om.close_position(pos.position_id, pos.current_amount)
                     elif pos.order_type in (OrderType.LIMIT, OrderType.STOP):
                         pos.status = PositionStatus.OPEN
 

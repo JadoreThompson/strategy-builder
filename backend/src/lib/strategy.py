@@ -1,8 +1,8 @@
 from abc import abstractmethod
 
+from lib.order_managers.futures_order_manager import FuturesOrderManager
 from core.enums import StrategyType
 from lib.enums import TradingPlatform
-from lib.order_manager_registry import OrderManagerRegistry
 from lib.typing import Tick
 
 
@@ -12,14 +12,10 @@ class Strategy:
     when a new tick comes in
     """
 
-    def __init__(
-        self,
-        type: StrategyType,
-        platform: TradingPlatform,
-        instrument: str,
-    ):
+    _om: FuturesOrderManager | None = None  # must be set after init
+
+    def __init__(self, type: StrategyType, instrument: str):
         self._type = type
-        self._om = OrderManagerRegistry.get(platform)
         self._instrument = instrument.lower()
 
     @abstractmethod
@@ -35,7 +31,10 @@ class Strategy:
         """
         Pretrade logic to be ran before receiving ticks
         """
-        self._om.login()
+        if not self._om:
+            raise Exception("OM not initialised.")
+        if not self._om.login():
+            raise Exception("OM failed to login")
 
     def __enter__(self):
         self.startup()

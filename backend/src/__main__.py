@@ -5,7 +5,7 @@ from multiprocessing import Process
 
 import uvicorn
 
-from workers import deployment_queue_listener, run_server
+from workers import deployment_queue_listener, positions_logger, run_server
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ async def main1():
     pargs = (
         (run_server, (queue,), {}, "Server"),
         (deployment_queue_listener, (queue,), {}, "Deployment queue listener"),
+        (positions_logger, (), {}, "Positions logger")
     )
 
     ps = [

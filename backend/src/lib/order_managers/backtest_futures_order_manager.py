@@ -55,8 +55,8 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
             tp_price,
             sl_price,
         )
-        self._positions[pos.id] = pos
-        return pos.id
+        self._positions[pos.position_id] = pos
+        return pos.position_id
 
     def modify_position(
         self,
@@ -87,7 +87,7 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
             return False
 
         if amount > pos.current_amount:
-            self._positions[pos.id] = pos
+            self._positions[pos.position_id] = pos
             logger.error(
                 f"Invalid close amount {amount} is greater than position amount {pos.current_amount}"
             )
@@ -117,21 +117,21 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
             pos.current_amount -= amount
             pos.unrealised_pnl = self._calc_upl(pos, price, pos.current_amount)
 
-            self._positions[pos.id] = pos
+            self._positions[pos.position_id] = pos
 
         self._free_margin = self._equity - self._margin
         return True
 
     def close_all_positions(self) -> None:
         for pos in list(self._positions.values()):
-            self.close_position(pos.id, pos.current_amount)
+            self.close_position(pos.position_id, pos.current_amount)
 
     def cancel_position(self, position_id: str) -> bool:
         """Alias for close in backtest context (cancel = remove before fill)."""
         if (
             pos := self._positions.get(position_id)
         ) and pos.status == PositionStatus.PENDING:
-            pos = self._positions.pop(pos.id)
+            pos = self._positions.pop(pos.position_id)
             self._margin -= pos.current_amount
             self._free_margin = self._equity - self._margin
             pos.status = PositionStatus.CANCELLED
@@ -143,7 +143,7 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
         """Remove all active positions."""
         for pos in list(self._positions.values()):
             if pos.status == PositionStatus.PENDING:
-                self._positions.pop(pos.id)
+                self._positions.pop(pos.position_id)
                 self._margin -= pos.current_amount
                 self._free_margin = self._equity - self._margin
 
@@ -166,13 +166,13 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
 
         self._equity = self._balance + new_equity
         self._free_margin = self._equity - self._margin
-        
+
         # Closing positions
         if self._free_margin <= zero:
             positions: list[tuple[float, Position]] = []
             for pos in self._positions.values():
                 heapq.heappush(positions, (pos.current_amount, pos))
-            
+
             while self._free_margin <= zero and positions:
                 current_amount, pos = positions.pop()
 
@@ -188,7 +188,7 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
                 pos.close_price = tick.last
                 pos.closed_at = get_datetime()
                 pos.status = PositionStatus.CLOSED
-                self._positions.pop(pos.id)
+                self._positions.pop(pos.position_id)
 
         return self._free_margin > zero
 

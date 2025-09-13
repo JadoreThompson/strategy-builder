@@ -1,32 +1,9 @@
-import asyncio
-import queue
-from multiprocessing.queues import Queue as MPQueue
-
 import sys
 sys.path.append(r"{parent_folder}")
 
-from utils import get_db_sess_sync
-
-
 {strategy_code}
 
-
-def worker(queue: MPQueue):
-    """
-    Listens to the queue of positions, persists
-    and posts to the kafka consumer.
-    """
-    while True:
-        try:
-            pos = queue.get()
-
-            with get_db_sess_sync() as db_sess:
-                db_sess.execute()
-        except queue.Empty:
-            pass
-
-
-def executor(queue: MPQueue):
+def main():
     import os
     from sqlalchemy import update
 
@@ -45,9 +22,8 @@ def executor(queue: MPQueue):
         db_sess.commit()
 
     exchange = MT5FuturesExchange({creds})
-    om = MT5FuturesOrderManager()
+    om = MT5FuturesOrderManager({user_id}, {version_id})
     om._exchange = exchange
-    om._queue = queue
 
     strat = UserStrategy(StrategyType.FUTURES, TradingPlatform.MT5, "{instrument}")
     strat._om = om
@@ -57,45 +33,4 @@ def executor(queue: MPQueue):
             strat.run(tick)
 
 
-
-def main():
-    queue = MPQueue()
-
-    pargs = (
-        (worker, (queue,), {}, "Worker"),
-        (executor, (queue,), {}, "Executor"),
-    )
-
-    ps = [
-        Process(target=target, args=args, kwargs=kwargs, name=name) 
-        for target, args, kwargs, name in pargs
-    ]
-
-    for p in ps:
-        p.start()
-
-    try:
-        while True:
-            for ind, p in enumerate(ps):
-                if not p.is_alive():
-                    if p.name == "Executor":
-                        raise Exception("Executor died.")
-
-                    p.kill()
-                    p.join()
-
-                    target, args, kwargs, name = pargs[ind]
-                    new_p = Process(
-                        target=target, args=args, kwargs=kwargs, name=name
-                    )
-                    new_p.start()
-                    ps[ind] = new_p
-
-            await asyncio.sleep(0.1)
-    finally:
-        for p in ps:
-            p.kill()
-            p.join()
-
-
-asyncio.run(main())
+main()

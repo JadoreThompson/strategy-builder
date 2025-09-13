@@ -57,6 +57,9 @@ DB_ENGINE_SYNC = create_engine(
 # Kafka
 KAFKA_POSITIONS_TOPIC = os.getenv(
     "KAFKA_POSITIONS_TOPIC", "positions"
+)  # Position updates from log worker
+KAFKA_POSITIONS_LOGGER_TOPIC = os.getenv(
+    "KAFKA_POSITIONS_LOGGER_TOPIC", "positions_logger"
 )  # Position updates from strategies
 KAFKA_HOST = os.getenv("KAFKA_HOST", "localhost")
 KAFKA_PORT = int(os.getenv("KAFKA_PORT", "9092"))

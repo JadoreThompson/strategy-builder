@@ -35,8 +35,9 @@ class DeploymentPayload(CustomBaseModel):
 
 # TODO: Add support for partials
 
+
 class Position(CustomBaseModel):
-    id: str | int
+    position_id: str # DB id
     instrument: str
     side: Side
     order_type: OrderType
@@ -53,7 +54,7 @@ class Position(CustomBaseModel):
     created_at: datetime | None = field(default_factory=get_datetime)
     close_price: float | None = None
     closed_at: datetime | None = None
-    metadata: dict | None = None
+    extras: dict | None = None # Extra platform specific data
 
     def __post_init_post_parse__(self):
         self.current_amount = self.starting_amount
@@ -61,6 +62,8 @@ class Position(CustomBaseModel):
 
 class PositionMessage(CustomBaseModel):
     """Payload sent to the websocket connection manager"""
-    topic: Literal['new', 'update']
+
+    topic: Literal["new", "update"]
     user_id: UUID
+    version_id: UUID
     position: Position

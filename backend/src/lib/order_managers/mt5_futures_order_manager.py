@@ -2,16 +2,18 @@ from dataclasses import asdict
 import logging
 from decimal import Decimal
 from typing import cast
+from uuid import UUID
 
 import MetaTrader5 as mt5
 from kafka import KafkaProducer
 
 from core.typing import PositionMessage
-from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_TOPIC
+from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_LOGGER_TOPIC
 from core.enums import OrderType, PositionStatus, Side
 from core.typing import Position
 from lib.typing import MODIFY_SENTINEL
 from .futures_order_manager import FuturesOrderManager
+
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +25,14 @@ class MT5FuturesOrderManager(FuturesOrderManager):
     synchronizes account state, and manages a local cache of positions.
     """
 
-    def __init__(self):
+    def __init__(self, user_id: UUID, version_id: UUID):
         super().__init__()
         self._account_info = None
         self._producer = KafkaProducer(
             bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
         )
-        self._queue = None
+        self._user_id = user_id
+        self._version_id = version_id
 
     def login(self) -> bool:
         is_logged_in = self._exchange.login()
@@ -60,12 +63,19 @@ class MT5FuturesOrderManager(FuturesOrderManager):
             sl_price,
         )
         if pos:
-            self._positions[pos.id] = pos
-            self._queue.put_nowait(
-                PositionMessage(topic="new", user_id="", position=pos)
+            self._positions[pos.position_id] = pos
+            self._producer.send(
+                KAFKA_POSITIONS_LOGGER_TOPIC,
+                PositionMessage(
+                    topic="new",
+                    user_id=self._user_id,
+                    version_id=self._version_id,
+                    position=pos,
+                )
+                .model_dump_json()
+                .encode("utf-8"),
             )
-            # self._producer.send(KAFKA_POSITIONS_TOPIC, pos.model_dump())
-            return pos.id
+            return pos.position_id
         return None
 
     def modify_position(
@@ -86,6 +96,17 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         )
         if success:
             self._positions[position_id] = updated_pos
+            self._producer.send(
+                KAFKA_POSITIONS_LOGGER_TOPIC,
+                PositionMessage(
+                    topic="update",
+                    user_id=self._user_id,
+                    version_id=self._version_id,
+                    position=updated_pos,
+                )
+                .model_dump_json()
+                .encode("utf-8"),
+            )
         return success
 
     def close_position(
@@ -161,19 +182,19 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         if open_positions:
             for pos in open_positions:
                 position = self._mt5_pos_to_position(pos)
-                self._positions[position.id] = position
+                self._positions[position.position_id] = position
 
         pending_orders = mt5.orders_get()
         if pending_orders:
             for order in pending_orders:
                 position = self._mt5_order_to_position(order)
-                self._positions[position.id] = position
+                self._positions[position.position_id] = position
 
     @staticmethod
     def _mt5_pos_to_position(mt5_pos) -> Position:
         side = Side.BID if mt5_pos.type == mt5.ORDER_TYPE_BUY else Side.ASK
         return Position(
-            id=str(mt5_pos.ticket),
+            position_id=str(mt5_pos.ticket),
             instrument=mt5_pos.symbol,
             side=side,
             order_type=OrderType.MARKET,
@@ -201,7 +222,7 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         )
 
         return Position(
-            id=str(mt5_order.ticket),
+            position_id=str(mt5_order.ticket),
             instrument=mt5_order.symbol,
             side=side,
             order_type=order_type,

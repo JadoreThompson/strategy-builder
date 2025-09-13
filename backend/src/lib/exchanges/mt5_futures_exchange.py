@@ -19,7 +19,7 @@ class CredsDict(TypedDict):
     password: str
     server: str
 
-
+# TODO: Assign ID to extras field
 class MT5FuturesExchange(FuturesExchange):
     """
     An implementation of the FuturesExchange for MetaTrader 5.
@@ -166,13 +166,13 @@ class MT5FuturesExchange(FuturesExchange):
             logger.error("Not logged into MetaTrader 5.")
             return False, position
 
-        if position.id is None:
+        if position.position_id is None:
             logger.error("Position ID is not set.")
             return False, position
 
         request = {
             "action": mt5.TRADE_ACTION_MODIFY,
-            "order": int(position.id),
+            "order": int(position.position_id),
             "sl": (
                 sl_price
                 if sl_price is not MODIFY_SENTINEL
@@ -198,10 +198,12 @@ class MT5FuturesExchange(FuturesExchange):
         result = mt5.order_send(request)
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             error_message = mt5.last_error() if result is None else result.comment
-            logger.error(f"Failed to modify position {position.id}: {error_message}")
+            logger.error(
+                f"Failed to modify position {position.position_id}: {error_message}"
+            )
             return False, position
 
-        updated_position = position.copy()
+        updated_position = position.model_copy()
         if sl_price is not MODIFY_SENTINEL:
             updated_position.sl_price = sl_price
         if tp_price is not MODIFY_SENTINEL:
@@ -223,7 +225,7 @@ class MT5FuturesExchange(FuturesExchange):
             logger.error("Not logged into MetaTrader 5.")
             return False, position
 
-        if position.id is None:
+        if position.position_id is None:
             logger.error("Position ID is not set.")
             return False, position
 
@@ -237,6 +239,7 @@ class MT5FuturesExchange(FuturesExchange):
             if not symbol_info_tick:
                 logger.error(f"Could not retrieve tick for {position.instrument}")
                 return False, position
+
             close_price = (
                 symbol_info_tick.bid
                 if position.side == Side.BID
@@ -245,7 +248,7 @@ class MT5FuturesExchange(FuturesExchange):
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
-            "position": int(position.id),
+            "position": int(position.position_id),
             "symbol": position.instrument,
             "volume": float(amount),
             "type": close_side,
@@ -259,7 +262,9 @@ class MT5FuturesExchange(FuturesExchange):
         result = mt5.order_send(request)
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             error_message = mt5.last_error() if result is None else result.comment
-            logger.error(f"Failed to close position {position.id}: {error_message}")
+            logger.error(
+                f"Failed to close position {position.position_id}: {error_message}"
+            )
             return False, position
 
         position.status = PositionStatus.CLOSED
@@ -281,7 +286,7 @@ class MT5FuturesExchange(FuturesExchange):
         for pos in positions:
             self.close_position(
                 Position(
-                    id=str(pos.ticket),
+                    position_id=str(pos.ticket),
                     instrument=pos.symbol,
                     side=Side.BID if pos.type == mt5.ORDER_TYPE_BUY else Side.ASK,
                     order_type=OrderType.MARKET,
@@ -358,7 +363,7 @@ class MT5FuturesExchange(FuturesExchange):
         tp_price: float | None,
     ) -> Position:
         return Position(
-            id=str(result.order),
+            position_id=str(result.order),
             instrument=instrument,
             side=side,
             order_type=order_type,

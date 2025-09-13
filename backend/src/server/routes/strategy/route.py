@@ -1,6 +1,17 @@
+import json
+from asyncio import TimeoutError as AIOTimeoutError
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, WebSocket
+from fastapi import (
+    APIRouter,
+    Depends,
+    BackgroundTasks,
+    HTTPException,
+    Request,
+    WebSocket,
+)
+from fastapi.websockets import WebSocketState
+from starlette.websockets import WebSocketDisconnect
 from sqlalchemy import insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +19,8 @@ from core.enums import TaskStatus
 from db_models import Positions, Strategies, StrategyVersions, Backtests
 from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
+from server.exc import JWTError
+from server.services import JWTService
 from server.typing import JWTPayload
 from .connection_manager import ConnectionManager
 from .models import (
@@ -26,6 +39,7 @@ from .models import (
 
 route = APIRouter(prefix="/strategies", tags=["strategies"])
 conn_manager = ConnectionManager()
+
 
 # ---- STRATEGIES ----
 @route.post("/", response_model=StrategyCreateResponse)
@@ -355,15 +369,31 @@ async def get_positions(
 
 
 @route.websocket("/versions/{version_id}/positions")
-async def positions_websocket(version_id: UUID, ws: WebSocket):
+async def positions_websocket(version_id: UUID, ws: WebSocket):  # , x = Depends(dep)):
     global conn_manager
 
-    await conn_manager.connect(ws)
+    await ws.accept()
+
+    try:
+        m = await ws.receive_text()
+        token = json.loads(m).get("token")
+        payload = JWTService.decode(token)
+    except AIOTimeoutError:
+        await ws.close(reason="Token not received in time.")
+    except (AttributeError, TypeError):
+        await ws.close(reason="Invalid token.")
+    except JWTError as e:
+        await ws.close(reason=f"Invalid token {str(e)}.")
+
+    user_id = payload.sub
+    await conn_manager.connect(user_id, version_id, ws)
 
     try:
         while True:
             await ws.receive_bytes()
-    except RuntimeError:
+    except (RuntimeError, WebSocketDisconnect):
         pass
     finally:
-        conn_manager.disconnect()
+        conn_manager.disconnect(user_id, version_id)
+        if ws.state != WebSocketState.DISCONNECTED:
+            await ws.close()

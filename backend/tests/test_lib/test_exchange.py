@@ -61,9 +61,7 @@ def test_open_position_market():
     next(exchange.subscribe("ANY"))  # Set last_tick
 
     pos = exchange.open_position("EURUSD", Side.BID, OrderType.MARKET, Decimal("1.0"))
-    assert (
-        pos.status.value == PositionStatus.OPEN.value
-    ) 
+    assert pos.status.value == PositionStatus.OPEN.value
     assert pos.price == 100.0
     assert pos.order_type.value == OrderType.MARKET.value
 
@@ -184,7 +182,7 @@ def test_modify_position_success():
     assert success is True
     assert updated_pos.sl_price == 90.0
     assert updated_pos.tp_price == 110.0
-    assert updated_pos.id == initial_pos.id
+    assert updated_pos.position_id == initial_pos.id
 
 
 @patch("src.lib.exchanges.backtest_futures_exchange.OrderType", OrderType)

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 SENTINEL_POSITION = (
     Position(
-        id="tmp",
+        position_id="tmp",
         instrument="tmp-instrument",
         side=Side.ASK,
         order_type=OrderType.MARKET,
@@ -118,7 +118,7 @@ class BacktestFuturesExchange(FuturesExchange):
             return
 
         return Position(
-            id=str(uuid4()),
+            position_id=str(uuid4()),
             instrument=instrument,
             side=side,
             order_type=order_type,
@@ -204,7 +204,7 @@ class BacktestFuturesExchange(FuturesExchange):
             return (False, position)
 
         updated = Position(
-            id=position.id,
+            position_id=position.position_id,
             instrument=position.instrument,
             side=position.side,
             order_type=position.order_type,

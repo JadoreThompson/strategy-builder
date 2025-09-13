@@ -1,16 +1,25 @@
+import json
 import logging
 import os
 import time
 from asyncio import Queue
 from queue import Empty
 
+from kafka import KafkaConsumer, KafkaProducer
 import uvicorn
-from sqlalchemy import select, update
+from sqlalchemy import insert, select, update
 
 from core.enums import DeploymentStatus
-from config import BASE_PATH, RESOURCES_PATH
-from core.typing import DeploymentPayload
-from db_models import Accounts, Deployments, StrategyVersions
+from config import (
+    BASE_PATH,
+    KAFKA_HOST,
+    KAFKA_PORT,
+    KAFKA_POSITIONS_LOGGER_TOPIC,
+    KAFKA_POSITIONS_TOPIC,
+    RESOURCES_PATH,
+)
+from core.typing import DeploymentPayload, PositionMessage
+from db_models import Accounts, Deployments, Positions, StrategyVersions, Users
 from utils import get_db_sess_sync
 
 
@@ -32,10 +41,12 @@ def _handle_deployment(payload: DeploymentPayload) -> None:
         res = db_sess.execute(
             select(
                 Deployments.instrument,
+                Deployments.version_id,
                 Accounts.platform,
                 Accounts.login,
                 Accounts.password,
                 Accounts.server,
+                Accounts.user_id,
                 StrategyVersions.code,
             )
             .join(Accounts, Accounts.account_id == Deployments.account_id)
@@ -55,10 +66,12 @@ def _handle_deployment(payload: DeploymentPayload) -> None:
     mainpy = open(os.path.join(RESOURCES_PATH, "deployment.txt"), "r").read()
     mainpy = mainpy.format(
         strategy_code=data.code,
+        version_id=data.version_id,
         deployment_id=payload.deployment_id,
         instrument=data.instrument,
         parent_folder=BASE_PATH,
         creds={"login": data.login, "password": data.password, "server": data.server},
+        user_id=data.user_id,
     )
 
     print(mainpy)
@@ -94,3 +107,37 @@ def deployment_queue_listener(queue: Queue) -> None:
             pass
         finally:
             time.sleep(1)
+
+
+def positions_logger() -> None:
+    producer = KafkaProducer(
+        bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
+    )
+    consumer = KafkaConsumer(
+        KAFKA_POSITIONS_LOGGER_TOPIC,
+        bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
+        auto_offset_reset="earliest",
+        group_id="my-group",
+    )
+
+    for m in consumer:
+        data = PositionMessage(**json.loads(m.value.decode()))
+        pdict = data.position.model_dump()
+
+        if data.topic == "new":
+            q = insert(Positions).values(**pdict)
+        elif data.topic == "update":
+            q = (
+                update(Positions)
+                .values(**pdict)
+                .where(Positions.position_id == pdict["position_id"])
+            )
+        else:
+            logger.warning(f"Unkown topic {data.topic}")
+            continue
+
+        with get_db_sess_sync() as db_sess:
+            db_sess.execute(q)
+            db_sess.commit()
+
+        producer.send(KAFKA_POSITIONS_TOPIC, m.value)
