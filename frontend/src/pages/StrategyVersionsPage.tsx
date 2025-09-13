@@ -75,7 +75,6 @@ const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
         />
         <Tooltip
           formatter={(value, name, props) => {
-            console.log(value, name, props);
             if (name === "balance") {
               const pnl = props.payload?.pnl;
 
@@ -119,7 +118,7 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
   backtestStatus,
   stats,
 }) => {
-  return (
+  return ( 
     <Link
       to={`/strategies/versions/${version_id}`}
       className="w-full h-full grid grid-cols-2 gap-2 p-3 border-1 border-gray-200 hover:shadow-md hover:shadow-gray-100 cursor-pointer"
