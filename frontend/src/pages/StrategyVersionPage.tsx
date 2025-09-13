@@ -320,7 +320,7 @@ const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
           {loading && (
             <TableRow>
               <TableCell colSpan={7} className="h-50">
-                <Skeleton className="w-full h-full bg-gray-400" />
+                <Skeleton className="w-full h-full bg-gray-100" />
               </TableCell>
             </TableRow>
           )}
@@ -482,7 +482,7 @@ const StrategyVersionPage: FC = () => {
                 </Popover>
               </div>
             ) : (
-              <Skeleton className="w-1/3 h-full rounded-lg bg-gray-300" />
+              <Skeleton className="w-1/3 h-full rounded-lg bg-gray-100" />
             )}
           </div>
           <div className="w-full h-fit flex flex-row justify-start gap-1">

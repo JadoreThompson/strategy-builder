@@ -22,8 +22,18 @@ const BacktestBadge: FC<{ status: TaskStatus; className: string }> = ({
 
   return (
     <span className={`${getIconColor(status)} ${className}`}>
+      Backtest{"    "}
       {(() => {
         const s = status.toString();
+
+        if (s.includes("_")) {
+          const v = s
+            .split("_")
+            .map((_s) => _s.charAt(0).toUpperCase() + _s.slice(1))
+            .join(" ");
+          return v;
+        }
+
         return s.charAt(0).toUpperCase() + s.slice(1);
       })()}
     </span>

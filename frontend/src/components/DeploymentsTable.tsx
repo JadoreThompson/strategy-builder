@@ -147,7 +147,7 @@ const CreateDeploymentCard: FC<{
               Account
             </label>
             {loading ? (
-              <Skeleton className="w-full h-10 bg-gray-200" />
+              <Skeleton className="w-full h-10 bg-gray-100" />
             ) : (
               <select
                 id="account_id"
