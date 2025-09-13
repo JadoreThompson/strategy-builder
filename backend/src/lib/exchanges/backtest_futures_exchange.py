@@ -6,7 +6,8 @@ from uuid import uuid4
 import pandas as pd
 
 from core.enums import OrderType, PositionStatus, Side
-from lib.typing import MODIFY_SENTINEL, Position, Tick
+from core.typing import Position
+from lib.typing import MODIFY_SENTINEL, Tick
 from .futures_exchange import FuturesExchange
 
 

@@ -2,8 +2,9 @@ from abc import abstractmethod
 from decimal import Decimal
 
 from core.enums import OrderType, Side
+from core.typing import Position
 from lib.exchanges import FuturesExchange
-from lib.typing import MODIFY_SENTINEL, Position
+from lib.typing import MODIFY_SENTINEL
 
 
 class FuturesOrderManager:

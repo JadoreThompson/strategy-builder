@@ -6,7 +6,8 @@ from typing import Generator, TypedDict
 import MetaTrader5 as mt5
 
 from core.enums import OrderType, PositionStatus, Side
-from lib.typing import MODIFY_SENTINEL, Position, Tick
+from core.typing import Position
+from lib.typing import MODIFY_SENTINEL, Tick
 from .futures_exchange import FuturesExchange
 
 

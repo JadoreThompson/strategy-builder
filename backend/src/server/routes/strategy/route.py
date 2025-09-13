@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, WebSocket
 from sqlalchemy import insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,10 +9,11 @@ from db_models import Positions, Strategies, StrategyVersions, Backtests
 from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.typing import JWTPayload
+from .connection_manager import ConnectionManager
 from .models import (
     BacktestCreate,
-    BacktestResult,
     BacktestCreateResponse,
+    BacktestResult,
     BacktestResultResponse,
     Position,
     StrategiesResponse,
@@ -24,8 +25,9 @@ from .models import (
 
 
 route = APIRouter(prefix="/strategies", tags=["strategies"])
+conn_manager = ConnectionManager()
 
-
+# ---- STRATEGIES ----
 @route.post("/", response_model=StrategyCreateResponse)
 async def create_strategy_version(
     body: StrategyCreate,
@@ -104,6 +106,26 @@ async def get_strategies(
     ]
 
 
+@route.delete("/{strategy_id}")
+async def delete_strategy(
+    strategy_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    strategy = await db_sess.scalar(
+        select(Strategies).where(
+            Strategies.strategy_id == strategy_id, Strategies.user_id == jwt.sub
+        )
+    )
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    await db_sess.delete(strategy)
+    await db_sess.commit()
+    return {"message": "Successfully deleted  strategy"}
+
+
+# ---- STRATEGY VERSIONS ----
 @route.get("/{strategy_id}/versions", response_model=list[StrategyVersionsResponse])
 async def get_strategy_versions(
     strategy_id: UUID,
@@ -166,57 +188,6 @@ async def get_strategy_versions(
     return res
 
 
-@route.delete("/{strategy_id}")
-async def delete_strategy(
-    strategy_id: UUID,
-    jwt: JWTPayload = Depends(depends_jwt),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    strategy = await db_sess.scalar(
-        select(Strategies).where(
-            Strategies.strategy_id == strategy_id, Strategies.user_id == jwt.sub
-        )
-    )
-    if not strategy:
-        raise HTTPException(status_code=404, detail="Strategy not found")
-
-    await db_sess.delete(strategy)
-    await db_sess.commit()
-    return {"message": "Successfully deleted  strategy"}
-
-
-@route.get("/versions/{version_id}/backtests", response_model=list[BacktestResult])
-async def get_backtests(
-    version_id: UUID,
-    jwt: JWTPayload = Depends(depends_jwt),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    owned_versions = (
-        select(StrategyVersions.version_id)
-        .join(Strategies, StrategyVersions.strategy_id == Strategies.strategy_id)
-        .where(Strategies.user_id == jwt.sub)
-    )
-
-    res = await db_sess.scalars(
-        select(Backtests).where(
-            Backtests.version_id == version_id, Backtests.version_id.in_(owned_versions)
-        )
-    )
-
-    return [
-        BacktestResult(
-            status=bt.status,
-            total_pnl=bt.total_pnl,
-            starting_balance=bt.starting_balance,
-            end_balance=bt.end_balance,
-            total_trades=bt.total_trades,
-            win_rate=bt.win_rate,
-            created_at=bt.created_at,
-        )
-        for bt in res.all()
-    ]
-
-
 @route.get("/versions/{version_id}", response_model=StrategyVersionResponse)
 async def get_strategy_version(
     version_id: UUID,
@@ -235,6 +206,27 @@ async def get_strategy_version(
     return version
 
 
+@route.delete("/versions/{version_id}")
+async def delete_version(
+    version_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    version = await db_sess.scalar(
+        select(StrategyVersions)
+        .join(Strategies, Strategies.strategy_id == StrategyVersions.strategy_id)
+        .where(StrategyVersions.version_id == version_id, Strategies.user_id == jwt.sub)
+    )
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    await db_sess.delete(version)
+    await db_sess.commit()
+
+    return {"message": "Successfully deleted version"}
+
+
+# ---- BACKTESTS ----
 @route.post("/versions/{version_id}/backtest", response_model=BacktestCreateResponse)
 async def create_backtest(
     version_id: UUID,
@@ -273,6 +265,58 @@ async def create_backtest(
     return bt_dict
 
 
+@route.get("/versions/{version_id}/backtests", response_model=list[BacktestResult])
+async def get_backtests(
+    version_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    owned_versions = (
+        select(StrategyVersions.version_id)
+        .join(Strategies, StrategyVersions.strategy_id == Strategies.strategy_id)
+        .where(Strategies.user_id == jwt.sub)
+    )
+
+    res = await db_sess.scalars(
+        select(Backtests).where(
+            Backtests.version_id == version_id, Backtests.version_id.in_(owned_versions)
+        )
+    )
+
+    return [
+        BacktestResult(
+            status=bt.status,
+            total_pnl=bt.total_pnl,
+            starting_balance=bt.starting_balance,
+            end_balance=bt.end_balance,
+            total_trades=bt.total_trades,
+            win_rate=bt.win_rate,
+            created_at=bt.created_at,
+        )
+        for bt in res.all()
+    ]
+
+
+@route.get("/backtests/{backtest_id}", response_model=BacktestResultResponse)
+async def get_backtest_result(
+    backtest_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    query = (
+        select(Backtests)
+        .join(StrategyVersions)
+        .join(Strategies)
+        .where(Backtests.backtest_id == backtest_id, Strategies.user_id == jwt.sub)
+    )
+    backtest = (await db_sess.execute(query)).scalar_one_or_none()
+
+    if not backtest:
+        raise HTTPException(status_code=404, detail="Backtest not found.")
+    return backtest
+
+
+# ---- POSITIONS ----
 @route.get("/versions/{version_id}/positions", response_model=list[Position])
 async def get_positions(
     version_id: UUID,
@@ -310,40 +354,16 @@ async def get_positions(
     ]
 
 
-@route.delete("/versions/{version_id}")
-async def delete_version(
-    version_id: UUID,
-    jwt: JWTPayload = Depends(depends_jwt),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    version = await db_sess.scalar(
-        select(StrategyVersions)
-        .join(Strategies, Strategies.strategy_id == StrategyVersions.strategy_id)
-        .where(StrategyVersions.version_id == version_id, Strategies.user_id == jwt.sub)
-    )
-    if not version:
-        raise HTTPException(status_code=404, detail="Version not found")
+@route.websocket("/versions/{version_id}/positions")
+async def positions_websocket(version_id: UUID, ws: WebSocket):
+    global conn_manager
 
-    await db_sess.delete(version)
-    await db_sess.commit()
+    await conn_manager.connect(ws)
 
-    return {"message": "Successfully deleted version"}
-
-
-@route.get("/backtests/{backtest_id}", response_model=BacktestResultResponse)
-async def get_backtest_result(
-    backtest_id: UUID,
-    jwt: JWTPayload = Depends(depends_jwt),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    query = (
-        select(Backtests)
-        .join(StrategyVersions)
-        .join(Strategies)
-        .where(Backtests.backtest_id == backtest_id, Strategies.user_id == jwt.sub)
-    )
-    backtest = (await db_sess.execute(query)).scalar_one_or_none()
-
-    if not backtest:
-        raise HTTPException(status_code=404, detail="Backtest not found.")
-    return backtest
+    try:
+        while True:
+            await ws.receive_bytes()
+    except RuntimeError:
+        pass
+    finally:
+        conn_manager.disconnect()

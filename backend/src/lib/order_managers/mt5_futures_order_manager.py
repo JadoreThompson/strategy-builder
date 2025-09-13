@@ -6,9 +6,11 @@ from typing import cast
 import MetaTrader5 as mt5
 from kafka import KafkaProducer
 
+from core.typing import PositionMessage
 from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_TOPIC
 from core.enums import OrderType, PositionStatus, Side
-from lib.typing import MODIFY_SENTINEL, Position
+from core.typing import Position
+from lib.typing import MODIFY_SENTINEL
 from .futures_order_manager import FuturesOrderManager
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         self._producer = KafkaProducer(
             bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
         )
+        self._queue = None
 
     def login(self) -> bool:
         is_logged_in = self._exchange.login()
@@ -58,7 +61,10 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         )
         if pos:
             self._positions[pos.id] = pos
-            self._producer.send(KAFKA_POSITIONS_TOPIC, asdict(pos))
+            self._queue.put_nowait(
+                PositionMessage(topic="new", user_id="", position=pos)
+            )
+            # self._producer.send(KAFKA_POSITIONS_TOPIC, pos.model_dump())
             return pos.id
         return None
 

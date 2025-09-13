@@ -4,7 +4,8 @@ from decimal import Decimal
 from pprint import pprint
 
 from core.enums import OrderType, PositionStatus, Side
-from lib.typing import MODIFY_SENTINEL, Position, Tick
+from core.typing import Position
+from lib.typing import MODIFY_SENTINEL, Tick
 from utils import get_datetime
 from .futures_order_manager import FuturesOrderManager
 

@@ -2,7 +2,8 @@ from abc import abstractmethod
 from decimal import Decimal
 
 from core.enums import OrderType, Side
-from lib.typing import MODIFY_SENTINEL, Position
+from core.typing import Position
+from lib.typing import MODIFY_SENTINEL#, Position
 from .exchange import Exchange
 
 
