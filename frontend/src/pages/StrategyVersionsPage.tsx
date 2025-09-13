@@ -6,13 +6,58 @@ import useFetch from "@/hooks/useFetch";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { type TaskStatus } from "@/lib/types/taskStatus";
 import { Search } from "lucide-react";
-import { useState, type FC } from "react";
+import { useEffect, useState, type FC } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
-export const BacktestChart: FC<{ data: { date: string; pnl: number }[] }> = ({
-  data,
-}) => {
+interface BacktestChartProps {
+  versionId: string;
+}
+
+interface ChartDataPoint {
+  date: string;
+  pnl: number;
+}
+
+const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
+  const [data, setData] = useState<ChartDataPoint[] | null>(null);
+  const { data: backtests } = useFetch<
+    { backtest_id: string; created_at: string }[]
+  >(`${HTTP_BASE_URL}/strategies/versions/${versionId}/backtests`, {
+    credentials: "include",
+  });
+
+  useEffect(() => {
+    if (!backtests || !backtests.length) return;
+
+    const latestBacktest = backtests[backtests.length - 1];
+
+    if (!latestBacktest) return;
+
+    fetch(
+      `${HTTP_BASE_URL}/strategies/backtests/${latestBacktest.backtest_id}/positions-chart`,
+      { credentials: "include" }
+    )
+      .then((res) => res.json())
+      .then((chartData: ChartDataPoint[]) => setData(chartData))
+      .catch(console.error);
+  }, [backtests]);
+
+  if (!data)
+    return (
+      <div className="h-full flex items-center justify-center">
+        Loading chart...
+      </div>
+    );
+
+  if (!data.length) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        No backtests
+      </div>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={data}>
@@ -28,10 +73,23 @@ export const BacktestChart: FC<{ data: { date: string; pnl: number }[] }> = ({
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip />
+        <Tooltip
+          formatter={(value, name, props) => {
+            console.log(value, name, props);
+            if (name === "balance") {
+              const pnl = props.payload?.pnl;
+
+              return [
+                `$${value.toFixed(2)}`,
+                `Balance (PnL: $${pnl?.toFixed(2)})`,
+              ];
+            }
+            return [value, name];
+          }}
+        />
         <Area
           type="monotone"
-          dataKey="pnl"
+          dataKey="balance"
           stroke="#5a76b9"
           fill="url(#fillMobile)"
           strokeWidth={2}
@@ -113,16 +171,7 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
       </div>
       {/* Stats Chart */}
       <div className="h-full">
-        <BacktestChart
-          data={[
-            { date: "2024-01-01", pnl: 100 },
-            { date: "2024-01-02", pnl: 200 },
-            { date: "2024-01-03", pnl: 150 },
-            { date: "2024-01-04", pnl: 300 },
-            { date: "2024-01-05", pnl: 250 },
-            { date: "2024-01-06", pnl: 400 },
-          ]}
-        />
+        <BacktestChart versionId={version_id} />
       </div>
     </Link>
   );

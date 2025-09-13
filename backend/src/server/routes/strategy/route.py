@@ -13,7 +13,7 @@ from fastapi import (
 )
 from fastapi.websockets import WebSocketState
 from starlette.websockets import WebSocketDisconnect
-from sqlalchemy import insert, select, func
+from sqlalchemy import desc, insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.enums import TaskStatus
@@ -164,37 +164,68 @@ async def get_strategy_versions(
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
 
-    q = select(
-        StrategyVersions.version_id,
-        StrategyVersions.name,
-        StrategyVersions.deployment_status,
-        StrategyVersions.created_at,
+    backtest_ranked = select(
         Backtests,
-    ).where(StrategyVersions.strategy_id == strategy_id)
+        func.row_number()
+        .over(partition_by=Backtests.version_id, order_by=Backtests.created_at.desc())
+        .label("rn"),
+    ).subquery()
 
-    if name:
-        q = q.where(StrategyVersions.name.like(f"%{name}%"))
-
-    q = q.join(
-        Backtests, Backtests.version_id == StrategyVersions.version_id, isouter=True
+    q = (
+        select(
+            StrategyVersions.version_id,
+            StrategyVersions.name,
+            StrategyVersions.deployment_status,
+            StrategyVersions.created_at,
+            backtest_ranked.c.backtest_id,
+            backtest_ranked.c.status,
+            backtest_ranked.c.total_pnl,
+            backtest_ranked.c.starting_balance,
+            backtest_ranked.c.end_balance,
+            backtest_ranked.c.total_trades,
+            backtest_ranked.c.win_rate,
+            backtest_ranked.c.created_at.label("backtest_created_at"),
+        )
+        .join(
+            backtest_ranked,
+            backtest_ranked.c.version_id == StrategyVersions.version_id,
+            isouter=True,
+        )
+        .where(StrategyVersions.strategy_id == strategy_id, backtest_ranked.c.rn == 1)
     )
 
+    if name:
+        q = q.where(StrategyVersions.name == name)
+
     res = await db_sess.execute(q)
-    versions = res.all()
+    rows = res.all()
 
-    res = []
-    for vid, name, ds, created_at, bt in versions:
+    out = []
+    for (
+        vid,
+        name,
+        ds,
+        created_at,
+        backtest_id,
+        bt_status,
+        total_pnl,
+        starting_balance,
+        end_balance,
+        total_trades,
+        win_rate,
+        backtest_created_at,
+    ) in rows:
         backtest = None
-
-        if bt:
+        if backtest_id:
             backtest = BacktestResult(
-                status=bt.status,
-                total_pnl=bt.total_pnl,
-                starting_balance=bt.starting_balance,
-                end_balance=bt.end_balance,
-                total_trades=bt.total_trades,
-                win_rate=bt.win_rate,
-                created_at=bt.created_at,
+                backtest_id=backtest_id,
+                status=bt_status,
+                total_pnl=total_pnl,
+                starting_balance=starting_balance,
+                end_balance=end_balance,
+                total_trades=total_trades,
+                win_rate=win_rate,
+                created_at=backtest_created_at,
             )
 
         sv = StrategyVersionsResponse(
@@ -205,9 +236,9 @@ async def get_strategy_versions(
             backtest=backtest,
         )
 
-        res.append(sv)
+        out.append(sv)
 
-    return res
+    return out
 
 
 @route.get("/versions/{version_id}", response_model=StrategyVersionResponse)
@@ -307,6 +338,7 @@ async def get_backtests(
 
     return [
         BacktestResult(
+            backtest_id=bt.backtest_id,
             status=bt.status,
             total_pnl=bt.total_pnl,
             starting_balance=bt.starting_balance,

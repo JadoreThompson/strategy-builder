@@ -58,6 +58,7 @@ class BacktestCreateResponse(CustomBaseModel):
 
 
 class BacktestResult(CustomBaseModel):
+    backtest_id: UUID
     status: TaskStatus
     total_pnl: float | None
     starting_balance: float | None

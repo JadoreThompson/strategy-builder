@@ -413,7 +413,7 @@ const StrategyVersionPage: FC = () => {
           document.body
         )}
 
-      <div className="w-full sticky top-7 border-b-1 border-b-gray-200 mb-3">
+      <div className="z-[2] w-full sticky pt-7 top-0 border-b-1 border-b-gray-200 bg-white mb-3">
         <div className="max-w-7xl mx-auto">
           <div className="w-full h-7 mb-3">
             {!loading && data ? (
