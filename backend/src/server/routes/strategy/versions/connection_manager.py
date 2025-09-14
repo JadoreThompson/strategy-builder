@@ -6,15 +6,11 @@ from aiokafka import AIOKafkaConsumer, ConsumerRecord
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 
-from core.typing import PositionMessage
 from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_TOPIC
+from core.typing import PositionMessage
 
 
 logger = logging.getLogger(__name__)
-
-
-class ExistingConnection(Exception):
-    pass
 
 
 class ConnectionManager:
@@ -25,7 +21,6 @@ class ConnectionManager:
         self._task: asyncio.Task | None = None
 
     async def _start(self):
-        print(f"{KAFKA_HOST}:{KAFKA_PORT}")
         consumer = AIOKafkaConsumer(
             KAFKA_POSITIONS_TOPIC,
             bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",

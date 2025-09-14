@@ -25,7 +25,7 @@ class MT5FuturesOrderManager(FuturesOrderManager):
     synchronizes account state, and manages a local cache of positions.
     """
 
-    def __init__(self, user_id: UUID, version_id: UUID):
+    def __init__(self, user_id: str, version_id: str):
         super().__init__()
         self._account_info = None
         self._producer = KafkaProducer(

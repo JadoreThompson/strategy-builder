@@ -133,11 +133,15 @@ const CreateDeploymentCard: FC<{
         <h2 className="text-lg font-bold mb-4">Launch Deployment</h2>
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label
-              htmlFor=""
-              className="block text-sm font-medium mb-1"
-            >Instrument</label>
-            <Input type="text" name='instrument' placeholder="EURUSD" required/>
+            <label htmlFor="" className="block text-sm font-medium mb-1">
+              Instrument
+            </label>
+            <Input
+              type="text"
+              name="instrument"
+              placeholder="EURUSD"
+              required
+            />
           </div>
           <div>
             <label
@@ -264,7 +268,7 @@ const DeploymentsTable: FC<{ versionId: string }> = ({ versionId }) => {
       body: JSON.stringify({
         account_id,
         version_id: versionId,
-        instrument
+        instrument,
       }),
     });
 
@@ -338,7 +342,7 @@ const DeploymentsTable: FC<{ versionId: string }> = ({ versionId }) => {
             <TableHead className="text-right"></TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="text-xs">
           {!loading && !error && (
             <>
               {deployments!.length > 0 ? (
@@ -378,7 +382,9 @@ const DeploymentsTable: FC<{ versionId: string }> = ({ versionId }) => {
                             onClick={() =>
                               handleStopDeployment(d.deployment_id)
                             }
-                            disabled={["pending", "stopped", 'failed'].includes(d.status)}
+                            disabled={["pending", "stopped", "failed"].includes(
+                              d.status
+                            )}
                           >
                             <OctagonX className="w-3 h-3" />
                             Stop Deployment

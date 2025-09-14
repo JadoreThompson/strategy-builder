@@ -74,8 +74,6 @@ def _handle_deployment(payload: DeploymentPayload) -> None:
         user_id=data.user_id,
     )
 
-    print(mainpy)
-
     try:
         code = compile(mainpy, "<string>", "exec")
         res = exec(code, {})
@@ -88,7 +86,7 @@ def _handle_deployment(payload: DeploymentPayload) -> None:
             )
             db_sess.commit()
 
-        print(type(e), str(e))
+        logger.error(f"Error performing deployment: {type(e)} - {str(e)}")
 
 
 def deployment_queue_listener(queue: Queue) -> None:
@@ -102,6 +100,7 @@ def deployment_queue_listener(queue: Queue) -> None:
                 logger.info("Deployment queue listening.")
 
             data: DeploymentPayload = queue.get()
+            print(data)
             _handle_deployment(data)
         except Empty:
             pass

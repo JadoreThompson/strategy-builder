@@ -35,7 +35,7 @@ const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
     if (!latestBacktest) return;
 
     fetch(
-      `${HTTP_BASE_URL}/strategies/backtests/${latestBacktest.backtest_id}/positions-chart`,
+      `${HTTP_BASE_URL}/backtests/${latestBacktest.backtest_id}/positions-chart`,
       { credentials: "include" }
     )
       .then((res) => res.json())

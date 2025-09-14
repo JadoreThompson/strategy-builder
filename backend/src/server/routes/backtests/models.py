@@ -1,34 +1,9 @@
-from datetime import datetime
-from typing import Generic, TypeVar
+from datetime import datetime, date
 from uuid import UUID
-
 from pydantic import BaseModel, field_validator
 
-from core.enums import DeploymentStatus, TaskStatus
+from core.enums import TaskStatus
 from core.typing import CustomBaseModel
-
-
-T = TypeVar("T")
-
-
-class PaginationMeta(BaseModel):
-    page: int
-    size: int
-    has_next: bool
-
-
-class PaginatedResponse(PaginationMeta, Generic[T]):
-    data: list[T]
-
-
-class StrategyVersionResponse(CustomBaseModel):
-    version_id: UUID
-    strategy_id: UUID
-    name: str
-    prompt: str
-    backtest_status: TaskStatus
-    deployment_status: DeploymentStatus
-    created_at: datetime
 
 
 class BacktestResult(CustomBaseModel):
@@ -47,3 +22,14 @@ class BacktestResult(CustomBaseModel):
     def round_values(cls, v):
         if v is not None:
             return round(v, 2)
+
+
+class BacktestResultResponse(BacktestResult):
+    backtest_id: UUID
+    version_id: UUID
+
+
+class BacktestPositionsChartResponse(BaseModel):
+    date: date
+    balance: float
+    pnl: float

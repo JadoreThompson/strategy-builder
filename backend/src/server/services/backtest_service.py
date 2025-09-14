@@ -58,7 +58,6 @@ def run():
     )
     results = bt.run()
     
-    #print(json.dumps(results.__dict__))    
     print(results.model_dump_json())
 
 if __name__ == "__main__":
@@ -73,19 +72,19 @@ if __name__ == "__main__":
 
         for key in ("total_pnl", "starting_balance", "end_balance"):
             result[key] = round(float(result[key]), 2)
-
+        
         result["win_rate"] *= 100
         backtest_id = result["backtest_id"]
 
-        for t in result["trades"]:
-            t["backtest_id"] = backtest_id
+        for pos in result["positions"]:
+            pos["backtest_id"] = backtest_id
             for key in (
                 "starting_amount",
                 "current_amount",
                 "unrealised_pnl",
                 "realised_pnl",
             ):
-                t[key] = round(float(t[key]), 2)
+                pos[key] = round(float(pos[key]), 2)
 
         return result
 

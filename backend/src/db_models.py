@@ -8,7 +8,8 @@ from core.enums import PositionStatus, TaskStatus, DeploymentStatus
 from utils import get_datetime
 
 
-class Base(DeclarativeBase): ...
+class Base(DeclarativeBase):
+    pass
 
 
 class Users(Base):
@@ -62,8 +63,8 @@ class Ticks(Base):
     )
     instrument: Mapped[str] = mapped_column(String, nullable=False)
     last_price: Mapped[float] = mapped_column(Float, nullable=False)
-    bid_price: Mapped[float] = mapped_column(Float, nullable=False)
-    ask_price: Mapped[float] = mapped_column(Float, nullable=False)
+    bid_price: Mapped[float] = mapped_column(Float, nullable=True)
+    ask_price: Mapped[float] = mapped_column(Float, nullable=True)
     time: Mapped[int] = mapped_column(Integer, nullable=False)  # Unix Epoch seconds
 
 
@@ -182,6 +183,7 @@ class Backtests(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=get_datetime
     )
+    instrument: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=TaskStatus.PENDING.value
     )

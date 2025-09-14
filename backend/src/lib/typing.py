@@ -38,32 +38,6 @@ class MSS(NamedTuple):
     breakout_idx: int
 
 
-# # TODO: Add support for partials
-
-# class Position(CustomBaseModel):
-#     id: str | int
-#     instrument: str
-#     side: Side
-#     order_type: OrderType
-#     starting_amount: Decimal
-#     current_amount: Decimal = None
-#     price: float | None = None
-#     limit_price: float | None = None
-#     stop_price: float | None = None
-#     tp_price: float | None = None
-#     sl_price: float | None = None
-#     realised_pnl: Decimal | None = Decimal("0.0")
-#     unrealised_pnl: Decimal | None = Decimal("0.0")
-#     status: PositionStatus = PositionStatus.PENDING
-#     created_at: datetime | None = field(default_factory=get_datetime)
-#     close_price: float | None = None
-#     closed_at: datetime | None = None
-#     metadata: dict | None = None
-
-#     def __post_init_post_parse__(self):
-#         self.current_amount = self.starting_amount
-
-
 class BacktestResult(CustomBaseModel):
     backtest_id: str
     total_pnl: Decimal
@@ -71,7 +45,7 @@ class BacktestResult(CustomBaseModel):
     end_balance: Decimal
     total_trades: int
     win_rate: float
-    trades: list[Position]
+    positions: list[Position]
 
 
 MODIFY_SENTINEL = "*"

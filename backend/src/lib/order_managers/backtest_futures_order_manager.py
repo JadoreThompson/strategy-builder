@@ -105,7 +105,7 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
             pos.unrealised_pnl = 0.0
 
             pos.close_price = price
-            pos.closed_at = get_datetime()
+            pos.closed_at = self._exchange.last_tick.time
             pos.status = PositionStatus.CLOSED
             self._closed_positions.append(pos)
         else:
@@ -186,7 +186,7 @@ class BacktestFuturesOrderManager(FuturesOrderManager):
 
                 pos.current_amount = zero
                 pos.close_price = tick.last
-                pos.closed_at = get_datetime()
+                pos.closed_at = tick.time
                 pos.status = PositionStatus.CLOSED
                 self._positions.pop(pos.position_id)
 

@@ -1,34 +1,36 @@
 from datetime import datetime
-from typing import Generic, TypeVar
+from typing import Union
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import field_validator
 
-from core.enums import DeploymentStatus, TaskStatus
+from core.enums import TaskStatus, DeploymentStatus
 from core.typing import CustomBaseModel
 
 
-T = TypeVar("T")
+class StrategyCreate(CustomBaseModel):
+    prompt: str
+    name: str | None = None
+    strategy_id: UUID | None = None
 
 
-class PaginationMeta(BaseModel):
-    page: int
-    size: int
-    has_next: bool
-
-
-class PaginatedResponse(PaginationMeta, Generic[T]):
-    data: list[T]
-
-
-class StrategyVersionResponse(CustomBaseModel):
+class StrategyCreateResponse(CustomBaseModel):
+    strategy_id: UUID
     version_id: UUID
+
+
+class StrategiesResponse(CustomBaseModel):
     strategy_id: UUID
     name: str
-    prompt: str
-    backtest_status: TaskStatus
-    deployment_status: DeploymentStatus
     created_at: datetime
+
+
+class StrategyVersionsResponse(CustomBaseModel):
+    version_id: UUID
+    name: str
+    created_at: datetime
+    deployment_status: DeploymentStatus
+    backtest: Union["BacktestResult", None]
 
 
 class BacktestResult(CustomBaseModel):

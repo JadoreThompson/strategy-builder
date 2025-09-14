@@ -51,17 +51,20 @@ class Backtest:
                 self._om.perform_risk_checks(tick)
                 self._strat.run(tick)
 
-
         return self._get_backtest_result()
 
     def _get_backtest_result(self):
         closed_count = len(self._om._closed_positions)
         total_trades = len(self._om._positions) + closed_count
-        win_rate = sum(
-            1
-            for pos in self._om._closed_positions
-            if pos.realised_pnl and pos.realised_pnl >= 0.0
-        )
+
+        n, wins = 0, 0
+        for pos in self._om._closed_positions:
+            if pos.realised_pnl is not None:
+                n += 1
+                if pos.realised_pnl > 0.0:
+                    wins += 1
+
+        win_rate = 1 / (n / wins)
 
         total_pnl = Decimal("0.0")
         for pos in self._om._closed_positions:
@@ -77,6 +80,7 @@ class Backtest:
             end_balance=self._om._balance,
             total_trades=total_trades,
             win_rate=win_rate,
-            trades=self._om._closed_positions + [*self._om.positions],
+            positions=self._om._closed_positions + [*self._om.positions],
         )
+
         return res

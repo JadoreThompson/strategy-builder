@@ -70,7 +70,8 @@ def run_backtest(backtest_id: UUID, backtest_params: dict):
                 .where(Backtests.backtest_id == backtest_id)
                 .values(**results, status=TaskStatus.COMPLETED.value)
             )
-            db_sess.execute(insert(BacktestPositions), positions)
+            if positions:
+                db_sess.execute(insert(BacktestPositions), positions)
             db_sess.commit()
 
         logger.info(f"Successfully completed backtest for backtest_id: {backtest_id}")

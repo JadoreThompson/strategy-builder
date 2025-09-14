@@ -22,10 +22,10 @@ def main():
         db_sess.commit()
 
     exchange = MT5FuturesExchange({creds})
-    om = MT5FuturesOrderManager({user_id}, {version_id})
+    om = MT5FuturesOrderManager("{user_id}", "{version_id}")
     om._exchange = exchange
 
-    strat = UserStrategy(StrategyType.FUTURES, TradingPlatform.MT5, "{instrument}")
+    strat = UserStrategy(StrategyType.FUTURES, "{instrument}")
     strat._om = om
 
     with strat:

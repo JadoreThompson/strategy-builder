@@ -62,6 +62,6 @@ class PositionMessage(CustomBaseModel):
     """Payload sent to the websocket connection manager"""
 
     topic: Literal["new", "update"]
-    user_id: UUID
-    version_id: UUID
+    user_id: str
+    version_id: str
     position: Position
