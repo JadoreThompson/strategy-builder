@@ -7,8 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { HTTP_BASE_URL } from "@/config";
-import useFetch from "@/hooks/useFetch";
+import { useStrategiesQuery } from "@/hooks/strategies-hooks";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { Search } from "lucide-react";
 import { useEffect, useState, type FC } from "react";
@@ -25,38 +24,42 @@ const StrategiesPage: FC = () => {
   const [searchText, setSearchText] = useState("");
   const [strategies, setStrategies] = useState<StrategiesResponse[]>([]);
 
-  const { data, loading: isLoading } = useFetch<StrategiesResponse[]>(
-    HTTP_BASE_URL +
-      "/strategies" +
-      (searchText ? `?name=${encodeURIComponent(searchText)}` : ""),
-    {
-      credentials: "include",
-    }
-  );
+  // const { data, loading: isLoading } = useFetch<StrategiesResponse[]>(
+  //   HTTP_BASE_URL +
+  //     "/strategies" +
+  //     (searchText ? `?name=${encodeURIComponent(searchText)}` : ""),
+  //   {
+  //     credentials: "include",
+  //   }
+  // );
+
+  const strategiesQuery = useStrategiesQuery({
+    name: searchText,
+  });
 
   useEffect(() => {
-    if (data) {
+    if (strategiesQuery.data) {
       setStrategies(
-        data.map((d) => ({
+        strategiesQuery.data.map((d) => ({
           ...d,
           created_at: new Date(d.created_at).toISOString().split("T")[0],
-        }))
+        })),
       );
     }
-  }, [data]);
+  }, [strategiesQuery.data]);
 
   return (
     <DashboardLayout>
-      <h1 className="text-2xl font-semibold mb-3">Strategies</h1>
-      <div className="w-full h-9 flex justify-between mb-3">
+      <h1 className="mb-3 text-2xl font-semibold">Strategies</h1>
+      <div className="mb-3 flex h-9 w-full justify-between">
         <Link
           to="/create-strategy"
-          className="h-full w-20 flex items-center justify-center bg-primary text-white text-sm font-medium p-1 cursor-pointer"
+          className="bg-primary flex h-full w-20 cursor-pointer items-center justify-center p-1 text-sm font-medium text-white"
         >
           Create
         </Link>
-        <div className="h-full flex items-center border-1 border-gray-200 px-2">
-          <Search className="text-gray-600 w-5 h-5" />
+        <div className="flex h-full items-center border-1 border-gray-200 px-2">
+          <Search className="h-5 w-5 text-gray-600" />
           <Input
             placeholder="Search"
             className="border-none focus:!ring-0"
@@ -91,8 +94,8 @@ const StrategiesPage: FC = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={3} className="h-25">
-                  <div className="w-full h-full flex items-center justify-center">
-                    {isLoading ? (
+                  <div className="flex h-full w-full items-center justify-center">
+                    {strategiesQuery.isPending ? (
                       <>
                         Loading <p className="ellipsis"></p>
                       </>

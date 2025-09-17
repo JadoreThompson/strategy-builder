@@ -1,8 +1,10 @@
-import BacktestBadge from "@/components/BacktestBadge";
-import DeploymentsTable from "@/components/DeploymentsTable";
+import BacktestsTable from "@/components/backtests-table";
+import CreateBacktestCard from "@/components/create-backtest-card";
+import CreateDeploymentCard from "@/components/create-deployment-card";
+import DeploymentsTable from "@/components/deployments-table";
+import PositionsTable from "@/components/positions-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -10,19 +12,11 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { HTTP_BASE_URL } from "@/config";
 import useFetch from "@/hooks/useFetch";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
+import type { AccountResponse } from "@/lib/types/accountResponse";
 import type { DeploymentStatus } from "@/lib/types/deploymentStatus";
-import type { Position } from "@/lib/types/position";
 import type { TaskStatus } from "@/lib/types/taskStatus";
 import {
   Ellipsis,
@@ -32,311 +26,68 @@ import {
   RotateCw,
   Trash2,
 } from "lucide-react";
-import React, { useState, type FC } from "react";
+import { useState, type FC } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
-const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
-  const {
-    data: positions,
-    loading,
-    error,
-  } = useFetch<Position[]>(
-    HTTP_BASE_URL + `/strategies/versions/${versionId}/positions`,
-    {
-      credentials: "include",
-    }
-  );
-
+const BacktestActions: FC<{
+  onRefresh: () => void;
+  onNewBacktest: () => void;
+}> = ({ onRefresh, onNewBacktest }) => {
   return (
-    <Table className="w-full h-full">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Instrument</TableHead>
-          <TableHead>Side</TableHead>
-          <TableHead>Order Type</TableHead>
-          <TableHead>Starting Amount</TableHead>
-          <TableHead>Current Amount</TableHead>
-          <TableHead>Price</TableHead>
-          <TableHead>Realised PnL</TableHead>
-          <TableHead>Unrealised PnL</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Created At</TableHead>
-        </TableRow>
-      </TableHeader>
-
-      <TableBody>
-        {!loading && !error && (
-          <>
-            {positions!.length > 0 ? (
-              positions!.map((p, idx) => (
-                <TableRow key={idx}>
-                  <TableCell>{p.instrument}</TableCell>
-                  <TableCell>{p.side}</TableCell>
-                  <TableCell>{p.order_type}</TableCell>
-                  <TableCell>{p.starting_amount.toFixed(2)}</TableCell>
-                  <TableCell>{p.current_amount?.toFixed(2) ?? "-"}</TableCell>
-                  <TableCell>{p.price?.toFixed(2) ?? "-"}</TableCell>
-                  <TableCell>{p.realised_pnl?.toFixed(2) ?? "-"}</TableCell>
-                  <TableCell>{p.unrealised_pnl?.toFixed(2) ?? "-"}</TableCell>
-                  <TableCell>{p.status}</TableCell>
-                  <TableCell className="text-right">
-                    {new Date(p.created_at).toLocaleString()}
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={10} className="h-50 !bg-gray-100">
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span>No positions</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </>
-        )}
-
-        {loading && (
-          <TableRow>
-            <TableCell colSpan={10} className="h-50">
-              <Skeleton className="w-full h-full bg-gray-100" />
-            </TableCell>
-          </TableRow>
-        )}
-
-        {error && (
-          <TableRow>
-            <TableCell colSpan={10} className="h-50">
-              <div className="w-full h-full flex items-center justify-center">
-                <span>{error.message}</span>
-              </div>
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+    <div className="h-full flex gap-3">
+      <Button
+        variant="outline"
+        onClick={onRefresh}
+        className="h-full cursor-pointer"
+        aria-label="Refresh backtests"
+      >
+        <RotateCw />
+      </Button>
+      <Button onClick={onNewBacktest} className="h-full cursor-pointer">
+        Backtest
+      </Button>
+    </div>
   );
 };
 
-interface BacktestResult {
-  status: TaskStatus;
-  total_pnl: number | null;
-  starting_balance: number | null;
-  end_balance: number | null;
-  total_trades: number | null;
-  win_rate: number | null;
-  created_at: string;
-}
+const DeploymentsActions: FC<{
+  onRefresh: () => void;
+  onNewDeployment: () => void;
+}> = ({ onRefresh, onNewDeployment }) => {
+  return (
+    <div className="h-full flex gap-3">
+      <Button
+        variant="outline"
+        onClick={onRefresh}
+        className="h-full cursor-pointer"
+        aria-label="Refresh backtests"
+      >
+        <RotateCw />
+      </Button>
+      <Button onClick={onNewDeployment} className="h-full cursor-pointer">
+        Deploy
+      </Button>
+    </div>
+  );
+};
 
-const CreateBacktestCard: FC<{
+const CreateDeploymentCardWrapper: FC<{
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
   onClose: () => void | Promise<void>;
 }> = ({ onSubmit, onClose }) => {
-  return (
-    <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
-      <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
-        <h2 className="text-lg font-bold mb-4">Launch Backtest</h2>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Instrument</label>
-            <Input
-              type="text"
-              name="instrument"
-              placeholder="e.g. BTC/USDT"
-              className="w-full border rounded-md px-3 py-2"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Starting Balance
-            </label>
-            <Input
-              type="number"
-              name="starting_balance"
-              placeholder="1000"
-              className="w-full border rounded-md px-3 py-2"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Leverage</label>
-            <Input
-              type="number"
-              name="leverage"
-              placeholder="10"
-              className="w-full border rounded-md px-3 py-2"
-              required
-            />
-          </div>
-          <div className="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onClose()}
-              className="px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="px-4 py-2 text-white rounded-md cursor-pointer"
-            >
-              Submit
-            </Button>
-          </div>
-        </form>
-      </div>
-    </Card>
-  );
-};
-
-const BacktestsTable: FC<{ versionId: string }> = ({ versionId }) => {
-  const [counter, setCounter] = useState<number>(0);
-
-  const {
-    data: backtests,
-    loading,
-    error,
-  } = useFetch<BacktestResult[]>(
-    HTTP_BASE_URL +
-      `/strategies/versions/${versionId}/backtests?refresh=${counter}`,
-    { credentials: "include" }
-  );
-
-  const [showCard, setShowCard] = useState<boolean>(false);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const fd = new FormData(e.currentTarget);
-
-    const rsp = await fetch(
-      HTTP_BASE_URL + `/strategies/versions/${versionId}/backtest`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(Object.fromEntries(fd.entries())),
-      }
-    );
-
-    if (rsp.ok) {
-      toast("Backtest initiated");
-      setCounter((prev) => prev + 1);
-    } else {
-      const data = await rsp.json();
-      toast(`Error: ${data.error}`);
-    }
-
-    setShowCard(false);
-  };
+  const { data: accounts, loading: accountsLoading } = useFetch<
+    AccountResponse[]
+  >(`${HTTP_BASE_URL}/accounts/`, { credentials: "include" });
 
   return (
-    <>
-      {showCard &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <CreateBacktestCard
-            onSubmit={handleSubmit}
-            onClose={() => setShowCard(false)}
-          />,
-          document.body
-        )}
-
-      <div className="w-full h-7 relative mb-3">
-        <div className="h-full absolute right-0 flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setCounter((prev) => prev + 1)}
-            className="h-full cursor-pointer"
-          >
-            <RotateCw />
-          </Button>
-          <Button
-            onClick={() => setShowCard(true)}
-            className="h-full cursor-pointer"
-          >
-            Backtest
-          </Button>
-        </div>
-      </div>
-
-      <Table className="w-full h-full">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Status</TableHead>
-            <TableHead>Total PnL</TableHead>
-            <TableHead>Starting Balance</TableHead>
-            <TableHead>End Balance</TableHead>
-            <TableHead>Total Trades</TableHead>
-            <TableHead>Win Rate</TableHead>
-            <TableHead className="text-right">Created At</TableHead>
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-          {!loading && !error && (
-            <>
-              {backtests!.length > 0 ? (
-                <>
-                  {backtests!.map((b, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>
-                        <BacktestBadge
-                          status={b.status}
-                          className="p-1 text-xs"
-                        />
-                      </TableCell>
-                      <TableCell>{b.total_pnl?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell>
-                        {b.starting_balance?.toFixed(2) ?? "-"}
-                      </TableCell>
-                      <TableCell>{b.end_balance?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell>{b.total_trades ?? "-"}</TableCell>
-                      <TableCell>{b.win_rate?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell className="text-right">
-                        {new Date(b.created_at).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </>
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-50 !bg-gray-100">
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span>No backtests</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </>
-          )}
-
-          {loading && (
-            <TableRow>
-              <TableCell colSpan={7} className="h-50">
-                <Skeleton className="w-full h-full bg-gray-100" />
-              </TableCell>
-            </TableRow>
-          )}
-
-          {error && (
-            <TableRow>
-              <TableCell colSpan={7} className="h-50">
-                <div className="w-full h-full flex items-center justify-center">
-                  <span>{error.message}</span>
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </>
+    <CreateDeploymentCard
+      accounts={accounts || []}
+      loading={accountsLoading}
+      onSubmit={onSubmit}
+      onClose={onClose}
+    />
   );
 };
 
@@ -366,6 +117,15 @@ const StrategyVersionPage: FC = () => {
   const [tab, setTab] = useState<Tab>(DEFAULT_TAB);
   const [showPrompt, setShowPrompt] = useState<boolean>(false);
 
+  const [backtestRefreshCounter, setBacktestRefreshCounter] =
+    useState<number>(0);
+  const [showCreateBacktestCard, setShowCreateBacktestCard] =
+    useState<boolean>(false);
+  const [deploymentRefreshCounter, setDeploymentRefreshCounter] =
+    useState<number>(0);
+  const [showCreateDeploymentCard, setShowCreateDeploymentCard] =
+    useState<boolean>(false);
+
   const deleteVersion = async () => {
     if (!data) return;
 
@@ -388,9 +148,96 @@ const StrategyVersionPage: FC = () => {
     }
   };
 
+  const handleOnBacktestSubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+
+    const fd = new FormData(e.currentTarget);
+
+    const rsp = await fetch(
+      HTTP_BASE_URL + `/strategies/versions/${versionId}/backtest`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(Object.fromEntries(fd.entries())),
+      }
+    );
+
+    if (rsp.ok) {
+      toast("Backtest initiated");
+      setBacktestRefreshCounter((prev) => prev + 1);
+    } else {
+      const data = await rsp.json();
+      toast(`Error: ${data.error}`);
+    }
+  };
+
+  const handleOnDeploymentSubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+
+    const fd = new FormData(e.currentTarget);
+    const account_id = fd.get("account_id");
+    const instrument = fd.get("instrument");
+
+    if (!account_id) {
+      toast("Error: Please select an account.");
+      return;
+    }
+
+    const rsp = await fetch(`${HTTP_BASE_URL}/deployments/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        account_id,
+        version_id: versionId,
+        instrument,
+      }),
+    });
+
+    if (rsp.ok) {
+      toast("Deployment initiated successfully.");
+      setDeploymentRefreshCounter((prev) => prev + 1);
+    } else {
+      const data = await rsp.json();
+      toast(`Error: ${data.detail || "Failed to create deployment."}`);
+    }
+
+    setShowCreateDeploymentCard(false);
+  };
+
   return (
     <DashboardLayout className="mt-7">
       <Toaster />
+
+      {showCreateBacktestCard &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <CreateBacktestCard
+            onSubmit={handleOnBacktestSubmit}
+            onClose={() => setShowCreateBacktestCard(false)}
+          />,
+          document.body
+        )}
+
+      {showCreateDeploymentCard &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <CreateDeploymentCardWrapper
+            onSubmit={handleOnDeploymentSubmit}
+            onClose={() => setShowCreateDeploymentCard(false)}
+          />,
+          document.body
+        )}
+
       {showPrompt &&
         data &&
         typeof document !== "undefined" &&
@@ -503,9 +350,49 @@ const StrategyVersionPage: FC = () => {
           </div>
         </div>
       </div>
-      <div className="w-full h-fit max-w-7xl mx-auto mb-3">
-        {tab === "Backtests" && <BacktestsTable versionId={versionId!} />}
-        {tab === "Deployments" && <DeploymentsTable versionId={versionId!} />}
+      <div className="w-full h-fit relative max-w-7xl mx-auto mb-3">
+        <div className="h-300 w-full"></div>
+        {tab === "Backtests" && (
+          <>
+            <div className="absolute top-0 left-0 w-full">
+              <div className="h-7 relative mb-3">
+                <div className="absolute right-0 h-full">
+                  <BacktestActions
+                    onRefresh={() =>
+                      setBacktestRefreshCounter((prev) => prev + 1)
+                    }
+                    onNewBacktest={() => setShowCreateBacktestCard(true)}
+                  />
+                </div>
+              </div>
+              <BacktestsTable
+                versionId={versionId!}
+                refreshCounter={backtestRefreshCounter}
+              />
+            </div>
+          </>
+        )}
+        {/* {tab === "Deployments" && <DeploymentsTable versionId={versionId!} />} */}
+        {tab === "Deployments" && (
+          <>
+            <div className="absolute top-0 left-0 w-full">
+              <div className="w-full h-7 relative mb-3">
+                <div className="absolute right-0 h-full">
+                  <DeploymentsActions
+                    onRefresh={() =>
+                      setBacktestRefreshCounter((prev) => prev + 1)
+                    }
+                    onNewDeployment={() => setShowCreateDeploymentCard(true)}
+                  />
+                </div>
+              </div>
+              <DeploymentsTable
+                versionId={versionId!}
+                refreshCounter={backtestRefreshCounter}
+              />
+            </div>
+          </>
+        )}
         {tab === "Positions" && <PositionsTable versionId={versionId!} />}
       </div>
     </DashboardLayout>

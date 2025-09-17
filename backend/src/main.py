@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def main0():
-    uvicorn.run("server.app:app", port=80, host="localhost", reload=True)
+    uvicorn.run("server.app:app", port=8000, host="localhost", reload=True)
 
 
 async def main1():

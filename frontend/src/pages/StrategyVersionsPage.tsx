@@ -1,4 +1,4 @@
-import BacktestBadge from "@/components/BacktestBadge";
+import BacktestBadge from "@/components/backtest-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HTTP_BASE_URL } from "@/config";
@@ -36,7 +36,7 @@ const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
 
     fetch(
       `${HTTP_BASE_URL}/backtests/${latestBacktest.backtest_id}/positions-chart`,
-      { credentials: "include" }
+      { credentials: "include" },
     )
       .then((res) => res.json())
       .then((chartData: ChartDataPoint[]) => setData(chartData))
@@ -45,14 +45,14 @@ const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
 
   if (!data)
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         Loading chart...
       </div>
     );
 
   if (!data.length) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         No backtests
       </div>
     );
@@ -118,10 +118,10 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
   backtestStatus,
   stats,
 }) => {
-  return ( 
+  return (
     <Link
       to={`/strategies/versions/${version_id}`}
-      className="w-full h-full grid grid-cols-2 gap-2 p-3 border-1 border-gray-200 hover:shadow-md hover:shadow-gray-100 cursor-pointer"
+      className="grid h-full w-full cursor-pointer grid-cols-2 gap-2 border-1 border-gray-200 p-3 hover:shadow-md hover:shadow-gray-100"
     >
       <div className="flex flex-col gap-7 py-3">
         <div className="flex items-center gap-3">
@@ -129,19 +129,19 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
           {backtestStatus && (
             <BacktestBadge
               status={backtestStatus}
-              className="text-xs w-fit h-fit p-1"
+              className="h-fit w-fit p-1 text-xs"
             />
           )}
         </div>
         <div className="flex flex-col gap-3">
           <div className="flex flex-row justify-between gap-2">
-            <div className="flex justify-between w-1/2">
+            <div className="flex w-1/2 justify-between">
               <span className="text-sm">Pnl</span>
               <span className="text-md font-semibold">
                 {typeof stats.total_pnl === "number" ? stats.total_pnl : "-"}
               </span>
             </div>
-            <div className="flex justify-between w-1/2">
+            <div className="flex w-1/2 justify-between">
               <span className="text-sm">Win Rate</span>
               <span className="text-md font-semibold">
                 {typeof stats.win_rate === "number" ? stats.win_rate : "-"}
@@ -149,7 +149,7 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
             </div>
           </div>
           <div className="flex flex-row justify-between gap-2">
-            <div className="flex justify-between w-1/2">
+            <div className="flex w-1/2 justify-between">
               <span className="text-sm">Max Drawdown</span>
               <span className="text-md font-semibold">
                 {typeof stats.max_drawdown === "number"
@@ -157,7 +157,7 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
                   : "-"}
               </span>
             </div>
-            <div className="flex justify-between w-1/2">
+            <div className="flex w-1/2 justify-between">
               <span className="text-sm">Sharpe Ratio</span>
               <span className="text-md font-semibold">
                 {typeof stats.sharpe_ratio === "number"
@@ -202,21 +202,21 @@ const StrategiesVersionsPage: FC = () => {
     HTTP_BASE_URL +
       `/strategies/${strategyId}/versions` +
       (searchText ? `?name=${encodeURIComponent(searchText)}` : ""),
-    { credentials: "include" }
+    { credentials: "include" },
   );
 
   return (
     <DashboardLayout>
-      <h1 className="text-2xl font-semibold mb-3">Versions</h1>
-      <div className="w-full h-7 flex justify-between mb-3">
+      <h1 className="mb-3 text-2xl font-semibold">Versions</h1>
+      <div className="mb-3 flex h-7 w-full justify-between">
         <Button
           onClick={() => navigate(`/create-version?strategy_id=${strategyId}`)}
           className="h-full"
         >
           Create
         </Button>
-        <div className="h-full flex items-center border-1 border-gray-200 px-2">
-          <Search className="text-gray-600 w-5 h-5" />
+        <div className="flex h-full items-center border-1 border-gray-200 px-2">
+          <Search className="h-5 w-5 text-gray-600" />
           <Input
             placeholder="Search"
             className="border-none focus:!ring-0"
@@ -229,7 +229,7 @@ const StrategiesVersionsPage: FC = () => {
       <div className="flex flex-col gap-2">
         {(data ?? []).length ? (
           data!.map((version) => (
-            <div key={version.version_id} className="w-full h-50">
+            <div key={version.version_id} className="h-50 w-full">
               <StrategyVersionCard
                 version_id={version.version_id}
                 name={version.name}

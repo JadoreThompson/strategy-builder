@@ -1,47 +1,58 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HTTP_BASE_URL } from "@/config";
+import { useCreateStrategyMutation } from "@/hooks/strategies-hooks";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { useState, type FC } from "react";
 import { useNavigate } from "react-router";
 
 const CreateStrategyPage: FC = () => {
   const navigate = useNavigate();
+  const createStrategyMutation = useCreateStrategyMutation();
+
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
+
+  //   setLoading(true);
+
+  //   const rsp = await fetch(HTTP_BASE_URL + "/strategies", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     credentials: "include",
+  //     body: JSON.stringify({ name, prompt }),
+  //   });
+
+  //   const data = await rsp.json();
+
+  //   if (!rsp.ok) {
+  //     setError(data.error);
+  //   } else {
+  //     navigate(`/strategies/versions/${data.version_id}`);
+  //   }
+
+  //   setLoading(false);
+  // };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setLoading(true);
-
-    const rsp = await fetch(HTTP_BASE_URL + "/strategies", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ name, prompt }),
+    createStrategyMutation.mutateAsync({ name, prompt }).then((data) => {
+      console.log(data);
+      // navigate(`/strategies/versions/${data.version_id}`);
     });
-
-    const data = await rsp.json();
-
-    if (!rsp.ok) {
-      setError(data.error);
-    } else {
-      navigate(`/strategies/versions/${data.version_id}`);
-    }
-
-    setLoading(false);
   };
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-4">Create a New Strategy</h1>
+      <div className="mx-auto max-w-2xl p-6">
+        <h1 className="mb-4 text-2xl font-bold">Create a New Strategy</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Strategy Name
             </label>
             <Input
@@ -49,13 +60,13 @@ const CreateStrategyPage: FC = () => {
               placeholder="Enter strategy name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Strategy Prompt
             </label>
             <textarea
@@ -64,22 +75,34 @@ const CreateStrategyPage: FC = () => {
               onChange={(e) => setPrompt(e.target.value)}
               rows={5}
               required
-              className="w-full h-75 border rounded-md px-3 py-2 focus:outline-none resize-none"
+              className="h-75 w-full resize-none rounded-md border px-3 py-2 focus:outline-none"
             />
           </div>
 
-          {error && (
+          {/* {error && (
             <div className="w-full text-center">
-              <span className="text-red-500 font-semibold">{error}</span>
+              <span className="font-semibold text-red-500">{error}</span>
+            </div>
+          )} */}
+
+          {createStrategyMutation.isError && (
+            <div className="w-full text-center">
+              <span className="font-semibold text-red-500">
+                {createStrategyMutation.error.message}
+              </span>
             </div>
           )}
 
           <Button
             type="submit"
-            disabled={loading || !name || !prompt}
-            className="w-full  text-white py-2 px-4 rounded-md disabled:bg-gray-900 cursor-pointer"
+            // disabled={loading || !name || !prompt}
+            disabled={createStrategyMutation.isPending || !name || !prompt}
+            className="w-full cursor-pointer rounded-md px-4 py-2 text-white disabled:bg-gray-900"
           >
-            {loading ? "Creating..." : "Create Strategy"}
+            {/* {loading ? "Creating..." : "Create Strategy"} */}
+            {createStrategyMutation.isPending
+              ? "Creating..."
+              : "Create Strategy"}
           </Button>
         </form>
       </div>

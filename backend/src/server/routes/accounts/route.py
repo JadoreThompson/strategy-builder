@@ -44,7 +44,7 @@ async def create_account(
     return res
 
 
-@route.get("/", response_model=list[AccountResponse])
+@route.get("/", response_model=list[AccountDetailResponse])
 async def get_accounts(
     name: str | None = None,
     jwt: JWTPayload = Depends(depends_jwt),
@@ -57,10 +57,13 @@ async def get_accounts(
 
     res = await db_sess.scalars(q)
     accounts = res.all()
+
     return [
-        AccountResponse(
+        AccountDetailResponse(
             account_id=acc.account_id,
             name=acc.name,
+            login=acc.login,
+            server=acc.server,
             platform=acc.platform,
             created_at=acc.created_at,
         )
@@ -128,7 +131,7 @@ async def update_account(
     )
 
     await db_sess.commit()
-    
+
     return res
 
 

@@ -38,7 +38,6 @@ logger = logging.getLogger("group_coordinator")
 logger.setLevel(logging.DEBUG)
 
 
-
 # Auth
 COOKIE_ALIAS = "strat-builder-cookie"
 JWT_ALGO = "HS256"
@@ -49,7 +48,7 @@ JWT_EXPIRY = timedelta(days=1000)
 # DB
 DB_HOST_CREDS = f"{os.getenv("DB_HOST", "localhost")}:{os.getenv("DB_PORT", 5432)}"
 DB_USER_CREDS = f"{os.getenv("DB_USER", "postgres")}:{quote(os.getenv("DB_PASSWORD"))}"
-DB_NAME = os.getenv("DB_NAME")
+DB_NAME = os.getenv("DB_NAME", "strat_builder")
 DB_ENGINE = create_async_engine(
     f"postgresql+asyncpg://{DB_USER_CREDS}@{DB_HOST_CREDS}/{DB_NAME}"
 )
@@ -84,7 +83,7 @@ else:
 
 
 class Dummy:
-    def put_nowait(self, *args, **kw):
-        ...
-        
-DEPLOYMENT_QUEUE: Queue = Dummy()  # Must be initialised one time by __main__.py
+    def put_nowait(self, *args, **kw): ...
+
+
+DEPLOYMENT_QUEUE: Queue = Dummy()  # Must be initialised by main.py

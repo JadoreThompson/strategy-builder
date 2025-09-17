@@ -15,11 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { HTTP_BASE_URL } from "@/config";
-import useFetch from "@/hooks/useFetch";
+import { useAccountsQuery } from "@/hooks/accounts-hooks";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import type { AccountResponse } from "@/lib/types/accountResponse";
+import dayjs from "dayjs";
 import { Ellipsis, Pencil, Search, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState, type FC } from "react";
+import { useState, type FC } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
@@ -70,68 +71,68 @@ const AccountFormModal: FC<{
     } catch (error) {
       console.error("Failed to submit account:", error);
       alert(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
   };
 
   return (
-    <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
-      <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
-        <h2 className="text-lg font-bold mb-4">
+    <Card className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="w-full max-w-md rounded-md bg-white p-6 shadow-lg">
+        <h2 className="mb-4 text-lg font-bold">
           {isEditing ? "Update Account" : "Create Account"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
+            <label className="mb-1 block text-sm font-medium">Name</label>
             <Input
               type="text"
               name="name"
               defaultValue={initialData?.name}
               placeholder="My Trading Account"
-              className="w-full border rounded-md px-3 py-2"
+              className="w-full rounded-md border px-3 py-2"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Login</label>
+            <label className="mb-1 block text-sm font-medium">Login</label>
             <Input
               type="text"
               name="login"
               defaultValue={initialData?.login}
               placeholder="123456"
-              className="w-full border rounded-md px-3 py-2"
+              className="w-full rounded-md border px-3 py-2"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label className="mb-1 block text-sm font-medium">Password</label>
             <Input
               type="password"
               name="password"
               placeholder={
                 isEditing ? "Leave blank to keep unchanged" : "••••••••"
               }
-              className="w-full border rounded-md px-3 py-2"
+              className="w-full rounded-md border px-3 py-2"
               required={!isEditing}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Server</label>
+            <label className="mb-1 block text-sm font-medium">Server</label>
             <Input
               type="text"
               name="server"
               defaultValue={initialData?.server}
               placeholder="Broker-Server"
-              className="w-full border rounded-md px-3 py-2"
+              className="w-full rounded-md border px-3 py-2"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Platform</label>
+            <label className="mb-1 block text-sm font-medium">Platform</label>
             <select
               name="platform"
-              className="w-full border rounded-md px-3 py-2 bg-white"
+              className="w-full rounded-md border bg-white px-3 py-2"
               defaultValue={initialData?.platform || "mt5"}
               required
             >
@@ -143,13 +144,13 @@ const AccountFormModal: FC<{
               type="button"
               variant="outline"
               onClick={onClose}
-              className="px-4 py-2 rounded-md border border-gray-300 text-sm cursor-pointer"
+              className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="px-4 py-2 text-white rounded-md cursor-pointer"
+              className="cursor-pointer rounded-md px-4 py-2 text-white"
             >
               Submit
             </Button>
@@ -175,7 +176,7 @@ const DeleteConfirmationModal: FC<{
         {
           method: "DELETE",
           credentials: "include",
-        }
+        },
       );
 
       if (!rsp.ok) {
@@ -191,9 +192,9 @@ const DeleteConfirmationModal: FC<{
   };
 
   return (
-    <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
-      <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
-        <h2 className="text-lg font-bold mb-4">Delete Account</h2>
+    <Card className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="w-full max-w-md rounded-md bg-white p-6 shadow-lg">
+        <h2 className="mb-4 text-lg font-bold">Delete Account</h2>
         <p className="mb-4 text-sm">
           This action cannot be undone. To confirm, please type{" "}
           <strong className="text-red-600">{account.name}</strong> in the box
@@ -206,7 +207,7 @@ const DeleteConfirmationModal: FC<{
           className="mb-4"
         />
         {error && (
-          <span className="text-red-500 text-sm font-semibold">{error}</span>
+          <span className="text-sm font-semibold text-red-500">{error}</span>
         )}
         <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={onClose}>
@@ -227,111 +228,73 @@ const DeleteConfirmationModal: FC<{
 
 const AccountsPage: FC = () => {
   const [searchText, setSearchText] = useState<string>("");
-  const [showCreateCard, setShowCreateCard] = useState<boolean>(false);
+
+  const [isCreating, setIsCreating] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean | null>(false);
-  const [focusedAcc, setFocusedAcc] = useState<AccountResponse | null>(null);
-  const [editingAccount, setEditingAccount] =
-    useState<AccountDetailResponse | null>(null);
 
-  const [refetchTrigger, setRefetchTrigger] = useState<number>(0);
+  const [curAccount, setCurAccount] = useState<
+    AccountDetailResponse | undefined
+  >(undefined);
 
-  const url = useMemo(() => {
-    const params = new URLSearchParams();
-    if (searchText) {
-      params.append("name", searchText);
-    }
-    params.append("_", String(refetchTrigger));
-    return `${HTTP_BASE_URL}/accounts?${params.toString()}`;
-  }, [searchText, refetchTrigger]);
-
-  const { data, loading: isLoading } = useFetch<AccountResponse[]>(url, {
-    credentials: "include",
-  });
-
-  const accounts = useMemo(() => {
-    if (data) {
-      return data.map((d) => ({
-        ...d,
-        created_at: new Date(d.created_at).toISOString().split("T")[0],
-      }));
-    } else {
-      return [];
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (isEditing && focusedAcc) {
-      (async () => {
-        const rsp = await fetch(
-          HTTP_BASE_URL + `/accounts/${focusedAcc.account_id}`,
-          { credentials: "include" }
-        );
-
-        if (rsp.ok) {
-          const data: AccountDetailResponse = await rsp.json();
-          setEditingAccount(data);
-        }
-      })();
-    }
-  }, [isEditing, focusedAcc]);
+  const accountsQuery = useAccountsQuery({ name: searchText });
 
   const handleSuccess = () => {
-    setShowCreateCard(false);
+    setIsCreating(false);
     setIsEditing(false);
     setIsDeleting(false);
-    setFocusedAcc(null);
-    setEditingAccount(null);
-    setRefetchTrigger((t) => t + 1);
+    setCurAccount(undefined);
+    accountsQuery.refetch();
   };
 
   return (
     <DashboardLayout>
-      {showCreateCard &&
+      {isCreating &&
         createPortal(
           <AccountFormModal
-            onClose={() => setShowCreateCard(false)}
+            onClose={() => setIsCreating(false)}
             onSuccess={handleSuccess}
           />,
-          document.body
-        )}
-      {editingAccount &&
-        createPortal(
-          <AccountFormModal
-            initialData={editingAccount}
-            onClose={() => {
-              setIsEditing(false);
-              setFocusedAcc(null);
-              setEditingAccount(null);
-            }}
-            onSuccess={handleSuccess}
-          />,
-          document.body
-        )}
-      {isDeleting &&
-        focusedAcc &&
-        createPortal(
-          <DeleteConfirmationModal
-            account={focusedAcc}
-            onClose={() => {
-              setIsDeleting(false);
-              setFocusedAcc(null);
-            }}
-            onSuccess={handleSuccess}
-          />,
-          document.body
+          document.body,
         )}
 
-      <h1 className="text-2xl font-semibold mb-3">Accounts</h1>
-      <div className="w-full h-9 flex justify-between mb-3">
+      {isEditing &&
+        curAccount &&
+        createPortal(
+          <AccountFormModal
+            initialData={curAccount}
+            onClose={() => {
+              setIsEditing(false);
+              setCurAccount(undefined);
+            }}
+            onSuccess={handleSuccess}
+          />,
+          document.body,
+        )}
+      {isDeleting &&
+        curAccount &&
+        createPortal(
+          <DeleteConfirmationModal
+            account={curAccount}
+            onClose={() => {
+              setIsDeleting(false);
+              setCurAccount(undefined);
+            }}
+            onSuccess={handleSuccess}
+          />,
+          document.body,
+        )}
+
+      <h1 className="mb-3 text-2xl font-semibold">Accounts</h1>
+      <div className="mb-3 flex h-9 w-full justify-between">
         <Button
-          onClick={() => setShowCreateCard(true)}
-          className="h-full w-fit flex items-center justify-center bg-primary text-white text-sm font-medium p-1 cursor-pointer"
+          onClick={() => setIsCreating(true)}
+          className="bg-primary flex h-full w-fit cursor-pointer items-center justify-center p-1 text-sm font-medium text-white"
         >
           Add Account
         </Button>
-        <div className="h-full flex items-center border-1 border-gray-200 px-2">
-          <Search className="text-gray-600 w-5 h-full" />
+        <div className="flex h-full items-center border-1 border-gray-200 px-2">
+          <Search className="h-full w-5 text-gray-600" />
           <Input
             placeholder="Search"
             className="h-full border-none focus:!ring-0"
@@ -352,8 +315,8 @@ const AccountsPage: FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {accounts.length ? (
-              accounts.map((acc, idx) => (
+            {accountsQuery.data ? (
+              accountsQuery.data.map((acc, idx) => (
                 <TableRow key={idx}>
                   <TableCell className="cursor-pointer">
                     {`${acc.account_id.slice(0, 8)}...`}
@@ -363,7 +326,7 @@ const AccountsPage: FC = () => {
                     {acc.platform}
                   </TableCell>
                   <TableCell className="cursor-pointer">
-                    {acc.created_at}
+                    {dayjs(acc.created_at).format("YYYY-MM")}
                   </TableCell>
                   <TableCell
                     className="text-right"
@@ -371,7 +334,10 @@ const AccountsPage: FC = () => {
                   >
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0 cursor-pointer">
+                        <Button
+                          variant="ghost"
+                          className="h-8 w-8 cursor-pointer p-0"
+                        >
                           <span className="sr-only">Open menu</span>
                           <Ellipsis className="h-4 w-4" />
                         </Button>
@@ -380,9 +346,9 @@ const AccountsPage: FC = () => {
                         <Button
                           variant="ghost"
                           onClick={() => {
-                            setFocusedAcc(acc), setIsEditing(true);
+                            (setCurAccount(acc), setIsEditing(true));
                           }}
-                          className="w-full justify-start font-normal text-xs cursor-pointer"
+                          className="w-full cursor-pointer justify-start text-xs font-normal"
                         >
                           <Pencil className="mr-1 h-3 w-3" />
                           Update
@@ -390,9 +356,9 @@ const AccountsPage: FC = () => {
                         <Button
                           variant="ghost"
                           onClick={() => {
-                            setFocusedAcc(acc), setIsDeleting(true);
+                            (setCurAccount(acc), setIsDeleting(true));
                           }}
-                          className="w-full justify-start font-normal text-xs text-red-600 hover:text-red-600 hover:bg-red-100 cursor-pointer"
+                          className="w-full cursor-pointer justify-start text-xs font-normal text-red-600 hover:bg-red-100 hover:text-red-600"
                         >
                           <Trash2 className="mr-1 h-3 w-3" />
                           Delete
@@ -405,8 +371,8 @@ const AccountsPage: FC = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={5} className="h-25">
-                  <div className="w-full h-full flex items-center justify-center">
-                    {isLoading ? (
+                  <div className="flex h-full w-full items-center justify-center">
+                    {accountsQuery.isPending ? (
                       <>
                         Loading
                         <p className="ellipsis"></p>
