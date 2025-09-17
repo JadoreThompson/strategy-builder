@@ -59,8 +59,11 @@ class Position(CustomBaseModel):
 
 
 class PositionMessage(CustomBaseModel):
-    """Payload sent to the websocket connection manager"""
-
+    """
+    Object containing all necessary fields
+    for persistence and communication with the positions logger
+    and the client manager.
+    """
     topic: Literal["new", "update"]
     user_id: str
     version_id: str

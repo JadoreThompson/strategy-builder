@@ -35,8 +35,6 @@ def run_server(queue) -> None:
 
 
 def _handle_deployment(payload: DeploymentPayload) -> None:
-    # Temp solution
-
     with get_db_sess_sync() as db_sess:
         res = db_sess.execute(
             select(
@@ -90,6 +88,10 @@ def _handle_deployment(payload: DeploymentPayload) -> None:
 
 
 def deployment_queue_listener(queue: Queue) -> None:
+    """
+    Receives deployment payload objetcs and handles
+    the dispatch of the deployment handler.
+    """
     logger.info("Starting deployment queue listener.")
     started = False
 
@@ -100,7 +102,6 @@ def deployment_queue_listener(queue: Queue) -> None:
                 logger.info("Deployment queue listening.")
 
             data: DeploymentPayload = queue.get()
-            print(data)
             _handle_deployment(data)
         except Empty:
             pass
@@ -109,19 +110,26 @@ def deployment_queue_listener(queue: Queue) -> None:
 
 
 def positions_logger() -> None:
+    """
+    Listens for messages from the positions logger topic,
+    records the position then relays to the websocket connection 
+    manager to update the client.
+    """
     producer = KafkaProducer(
         bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
     )
     consumer = KafkaConsumer(
         KAFKA_POSITIONS_LOGGER_TOPIC,
         bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
-        auto_offset_reset="earliest",
         group_id="my-group",
     )
 
     for m in consumer:
         data = PositionMessage(**json.loads(m.value.decode()))
-        pdict = data.position.model_dump()
+        
+        pdict = data.position.to_serialisable_dict()
+        pdict['user_id'] = data.user_id
+        pdict['version_id'] = data.version_id
 
         if data.topic == "new":
             q = insert(Positions).values(**pdict)

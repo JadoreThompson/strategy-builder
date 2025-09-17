@@ -193,7 +193,9 @@ async def delete_version(
 
 
 @route.websocket("/versions/{version_id}/positions")
-async def positions_websocket(version_id: UUID, ws: WebSocket):  # , x = Depends(dep)):
+async def positions_websocket(
+    version_id: UUID, ws: WebSocket, db_sess: AsyncSession = Depends(depends_db_sess)
+):
     global conn_manager
 
     await ws.accept()
@@ -203,13 +205,28 @@ async def positions_websocket(version_id: UUID, ws: WebSocket):  # , x = Depends
         token = json.loads(m).get("token")
         payload = JWTService.decode(token)
     except AIOTimeoutError:
-        await ws.close(reason="Token not received in time.")
-    except (AttributeError, TypeError):
-        await ws.close(reason="Invalid token.")
+        await ws.close(code=1008, reason="Token not received in time.")
+    except AttributeError:
+        await ws.close(code=1008, reason="Invalid token.")
     except JWTError as e:
-        await ws.close(reason=f"Invalid token {str(e)}.")
+        await ws.close(code=1008, reason=f"Invalid token {str(e)}.")
+
+    obj = await db_sess.scalar(
+        select(1).select_from(
+            select(Strategies)
+            .join(
+                StrategyVersions, StrategyVersions.strategy_id == Strategies.strategy_id
+            )
+            .where(
+                StrategyVersions.version_id == version_id,
+            )
+        )
+    )
+    if not obj:
+        await ws.close(code=1008, reason=f"Version not found.")
 
     user_id = payload.sub
+    version_id = str(version_id)
     await conn_manager.connect(user_id, version_id, ws)
 
     try:

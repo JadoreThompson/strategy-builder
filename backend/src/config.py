@@ -34,6 +34,10 @@ handler.setFormatter(
 )
 logger.addHandler(handler)
 
+logger = logging.getLogger("group_coordinator")
+logger.setLevel(logging.DEBUG)
+
+
 
 # Auth
 COOKIE_ALIAS = "strat-builder-cookie"

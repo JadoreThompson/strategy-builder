@@ -64,6 +64,7 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         )
         if pos:
             self._positions[pos.position_id] = pos
+            print("User ID:", self._user_id, 'Version ID:', self._version_id)
             self._producer.send(
                 KAFKA_POSITIONS_LOGGER_TOPIC,
                 PositionMessage(

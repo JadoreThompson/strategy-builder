@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import insert, select
@@ -51,4 +53,8 @@ async def login(body: UserLogin, db_sess: AsyncSession = Depends(depends_db_sess
 
 @route.get("/ws-token")
 async def get_ws_token(jwt: JWTPayload = Depends(depends_jwt)):
-    return {"token": JWTService.generate(sub=jwt.sub)}
+    return {
+        "token": JWTService.generate(
+            sub=jwt.sub, exp=get_datetime() + timedelta(minutes=1)
+        )
+    }
