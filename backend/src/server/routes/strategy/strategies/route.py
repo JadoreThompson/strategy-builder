@@ -98,25 +98,6 @@ async def get_strategies(
     ]
 
 
-@route.delete("/{strategy_id}")
-async def delete_strategy(
-    strategy_id: UUID,
-    jwt: JWTPayload = Depends(depends_jwt),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    strategy = await db_sess.scalar(
-        select(Strategies).where(
-            Strategies.strategy_id == strategy_id, Strategies.user_id == jwt.sub
-        )
-    )
-    if not strategy:
-        raise HTTPException(status_code=404, detail="Strategy not found")
-
-    await db_sess.delete(strategy)
-    await db_sess.commit()
-    return {"message": "Successfully deleted  strategy"}
-
-
 @route.get("/{strategy_id}/versions", response_model=list[StrategyVersionsResponse])
 async def get_strategy_versions(
     strategy_id: UUID,
@@ -133,12 +114,16 @@ async def get_strategy_versions(
     if not strategy:
         raise HTTPException(status_code=404, detail="Strategy not found")
 
-    backtest_ranked = select(
+    backtest_ranked_rn = select(
         Backtests,
         func.row_number()
         .over(partition_by=Backtests.version_id, order_by=Backtests.created_at.desc())
         .label("rn"),
     ).subquery()
+
+    backtest_ranked = (
+        select(backtest_ranked_rn).where(backtest_ranked_rn.c.rn == 1).subquery()
+    )
 
     q = (
         select(
@@ -157,10 +142,10 @@ async def get_strategy_versions(
         )
         .join(
             backtest_ranked,
-            backtest_ranked.c.version_id == StrategyVersions.version_id,
+            StrategyVersions.version_id == backtest_ranked.c.version_id,
             isouter=True,
         )
-        .where(StrategyVersions.strategy_id == strategy_id, backtest_ranked.c.rn == 1)
+        .where(StrategyVersions.strategy_id == strategy_id)
         .order_by(StrategyVersions.created_at.desc())
     )
 
@@ -209,3 +194,22 @@ async def get_strategy_versions(
         out.append(sv)
 
     return out
+
+
+@route.delete("/{strategy_id}")
+async def delete_strategy(
+    strategy_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    strategy = await db_sess.scalar(
+        select(Strategies).where(
+            Strategies.strategy_id == strategy_id, Strategies.user_id == jwt.sub
+        )
+    )
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+
+    await db_sess.delete(strategy)
+    await db_sess.commit()
+    return {"message": "Successfully deleted  strategy"}
