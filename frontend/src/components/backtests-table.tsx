@@ -1,7 +1,5 @@
-import { HTTP_BASE_URL } from "@/config";
-import useFetch from "@/hooks/useFetch";
-import type { TaskStatus } from "@/lib/types/taskStatus";
-import { type FC } from "react";
+import { useBacktestsQuery } from "@/hooks/strategy-version-hooks";
+import { useEffect, type FC } from "react";
 import BacktestBadge from "./backtest-badge";
 import { Skeleton } from "./ui/skeleton";
 import {
@@ -13,29 +11,13 @@ import {
   TableRow,
 } from "./ui/table";
 
-interface BacktestResult {
-  status: TaskStatus;
-  total_pnl: number | null;
-  starting_balance: number | null;
-  end_balance: number | null;
-  total_trades: number | null;
-  win_rate: number | null;
-  created_at: string;
-}
-
-const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = ({
-  versionId,
-  refreshCounter,
-}) => {
-  const {
-    data: backtests,
-    loading,
-    error,
-  } = useFetch<BacktestResult[]>(
-    HTTP_BASE_URL +
-      `/strategies/versions/${versionId}/backtests?refresh=${refreshCounter}`,
-    { credentials: "include" },
-  );
+const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
+  props,
+) => {
+  const backtestsQuery = useBacktestsQuery(props.versionId);
+  useEffect(() => {
+    backtestsQuery.refetch();
+  }, [props.refreshCounter]);
 
   return (
     <>
@@ -53,11 +35,19 @@ const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = ({
         </TableHeader>
 
         <TableBody>
-          {!loading && !error && (
+          {backtestsQuery.isPending && (
+            <TableRow>
+              <TableCell colSpan={7} className="h-50">
+                <Skeleton className="h-full w-full bg-gray-100" />
+              </TableCell>
+            </TableRow>
+          )}
+
+          {backtestsQuery.data && (
             <>
-              {backtests!.length > 0 ? (
+              {backtestsQuery.data.length > 0 ? (
                 <>
-                  {backtests!.map((b, idx) => (
+                  {backtestsQuery.data.map((b, idx) => (
                     <TableRow key={idx}>
                       <TableCell>
                         <BacktestBadge
@@ -90,19 +80,11 @@ const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = ({
             </>
           )}
 
-          {loading && (
-            <TableRow>
-              <TableCell colSpan={7} className="h-50">
-                <Skeleton className="h-full w-full bg-gray-100" />
-              </TableCell>
-            </TableRow>
-          )}
-
-          {error && (
+          {backtestsQuery.error && (
             <TableRow>
               <TableCell colSpan={7} className="h-50">
                 <div className="flex h-full w-full items-center justify-center">
-                  <span>{error.message}</span>
+                  <span>{backtestsQuery.error.message}</span>
                 </div>
               </TableCell>
             </TableRow>

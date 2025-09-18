@@ -51,12 +51,12 @@ export const customFetch = async <T>(
     credentials: "include",
   };
 
-  const response = await fetch(requestUrl, requestInit);
-  if (!response.ok) {
-    const errorText = await response.json();
-    throw errorText;
+  const rsp = await fetch(requestUrl, requestInit);
+  if (!rsp.ok) {
+    const errorText = await rsp.json();
+    throw Error(errorText.error);
   }
-  const data = await getBody<T>(response);
+  const data = await getBody<T>(rsp);
 
-  return { status: response.status, data, headers: response.headers } as T;
+  return { status: rsp.status, data, headers: rsp.headers } as T;
 };

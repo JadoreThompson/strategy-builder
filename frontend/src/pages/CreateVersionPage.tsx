@@ -1,18 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HTTP_BASE_URL } from "@/config";
+import { useCreateStrategyMutation } from "@/hooks/strategies-hooks";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { useEffect, useState, type FC } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 const CreateVersionPage: FC = () => {
-  const [params] = useSearchParams();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const createStrategyMutation = useCreateStrategyMutation();
+
   const [strategyId, setStrategyId] = useState<string | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const sid = params.get("strategy_id");
@@ -26,36 +26,18 @@ const CreateVersionPage: FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!strategyId) return;
-
-    setLoading(true);
-
-    const rsp = await fetch(HTTP_BASE_URL + "/strategies", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ name, prompt, strategy_id: strategyId }),
-    });
-
-    const data = await rsp.json();
-
-    if (!rsp.ok) {
-      setError(data.error);
-    } else {
-      navigate(`/strategies/versions/${data.version_id}`);
-    }
-
-    setLoading(false);
+    createStrategyMutation
+      .mutateAsync({ strategy_id: strategyId, name, prompt })
+      .then((data) => navigate(`/strategies/versions/${data.version_id}`));
   };
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-4">Create a New Version</h1>
+      <div className="mx-auto max-w-2xl p-6">
+        <h1 className="mb-4 text-2xl font-bold">Create a New Version</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Version Name
             </label>
             <Input
@@ -63,13 +45,13 @@ const CreateVersionPage: FC = () => {
               placeholder="Enter version name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border rounded-md px-3 py-2 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label className="mb-1 block text-sm font-medium">
               Version Prompt
             </label>
             <textarea
@@ -78,22 +60,26 @@ const CreateVersionPage: FC = () => {
               onChange={(e) => setPrompt(e.target.value)}
               rows={5}
               required
-              className="w-full h-75 border rounded-md px-3 py-2 focus:outline-none resize-none"
+              className="h-75 w-full resize-none rounded-md border px-3 py-2 focus:outline-none"
             />
           </div>
 
-          {error && (
+          {createStrategyMutation.error && (
             <div className="w-full text-center">
-              <span className="text-red-500 font-semibold">{error}</span>
+              <span className="font-semibold text-red-500">
+                {createStrategyMutation.error.message}
+              </span>
             </div>
           )}
 
           <Button
             type="submit"
-            disabled={loading || !name || !prompt}
-            className="w-full  text-white py-2 px-4 rounded-md disabled:bg-gray-900 cursor-pointer"
+            disabled={createStrategyMutation.isPending || !name || !prompt}
+            className="w-full cursor-pointer rounded-md px-4 py-2 text-white disabled:bg-gray-900"
           >
-            {loading ? "Creating..." : "Create Version"}
+            {createStrategyMutation.isPending
+              ? "Creating..."
+              : "Create Version"}
           </Button>
         </form>
       </div>

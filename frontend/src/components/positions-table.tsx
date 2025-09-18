@@ -1,7 +1,4 @@
-import { HTTP_BASE_URL } from "@/config";
-import useFetch from "@/hooks/useFetch";
-import type { Position } from "@/lib/types/position";
-
+import { usePositionsQuery } from "@/hooks/strategy-version-hooks";
 import type { FC } from "react";
 import { Skeleton } from "./ui/skeleton";
 import {
@@ -14,19 +11,10 @@ import {
 } from "./ui/table";
 
 const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
-  const {
-    data: positions,
-    loading,
-    error,
-  } = useFetch<Position[]>(
-    HTTP_BASE_URL + `/strategies/versions/${versionId}/positions`,
-    {
-      credentials: "include",
-    }
-  );
+  const positionsQuery = usePositionsQuery(versionId);
 
   return (
-    <Table className="w-full h-full">
+    <Table className="h-full w-full">
       <TableHeader>
         <TableRow>
           <TableHead>Instrument</TableHead>
@@ -43,10 +31,20 @@ const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
       </TableHeader>
 
       <TableBody>
-        {!loading && !error && (
+        {positionsQuery.error && (
+          <TableRow>
+            <TableCell colSpan={10} className="h-50">
+              <div className="flex h-full w-full items-center justify-center">
+                <span>{positionsQuery.error.message}</span>
+              </div>
+            </TableCell>
+          </TableRow>
+        )}
+
+        {positionsQuery.data && (
           <>
-            {positions!.length > 0 ? (
-              positions!.map((p, idx) => (
+            {positionsQuery.data.length > 0 ? (
+              positionsQuery.data.map((p, idx) => (
                 <TableRow key={idx}>
                   <TableCell>{p.instrument}</TableCell>
                   <TableCell>{p.side}</TableCell>
@@ -65,7 +63,7 @@ const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
             ) : (
               <TableRow>
                 <TableCell colSpan={10} className="h-50 !bg-gray-100">
-                  <div className="w-full h-full flex items-center justify-center">
+                  <div className="flex h-full w-full items-center justify-center">
                     <span>No positions</span>
                   </div>
                 </TableCell>
@@ -74,20 +72,10 @@ const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
           </>
         )}
 
-        {loading && (
+        {positionsQuery.isPending && (
           <TableRow>
             <TableCell colSpan={10} className="h-50">
-              <Skeleton className="w-full h-full bg-gray-100" />
-            </TableCell>
-          </TableRow>
-        )}
-
-        {error && (
-          <TableRow>
-            <TableCell colSpan={10} className="h-50">
-              <div className="w-full h-full flex items-center justify-center">
-                <span>{error.message}</span>
-              </div>
+              <Skeleton className="h-full w-full bg-gray-100" />
             </TableCell>
           </TableRow>
         )}

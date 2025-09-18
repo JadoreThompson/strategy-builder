@@ -8,49 +8,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { HTTP_BASE_URL } from "@/config";
+import { useLoginMutation } from "@/hooks/auth-hooks";
 import { useState, type FC } from "react";
 import { Link, useNavigate } from "react-router";
 
 const LoginPage: FC = () => {
+  const navigate = useNavigate();
+  const loginMutation = useLoginMutation();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
 
-    try {
-      const rsp = await fetch(`${HTTP_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!rsp.ok) {
-        const data = await rsp.json();
-        throw new Error(data.detail || "Invalid username or password.");
-      }
-
-      navigate("/strategies");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unknown error occurred."
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    loginMutation
+      .mutateAsync({ username, password })
+      .then(() => navigate("/strategies"));
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center space-y-1">
+        <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
           <CardDescription>
             Enter your credentials to access your dashboard
@@ -59,7 +39,10 @@ const LoginPage: FC = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="username">
+              <label
+                className="mb-1 block text-sm font-medium"
+                htmlFor="username"
+              >
                 Username
               </label>
               <Input
@@ -69,12 +52,12 @@ const LoginPage: FC = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="username"
                 required
-                disabled={isLoading}
+                disabled={loginMutation.isPending}
               />
             </div>
             <div>
               <label
-                className="block text-sm font-medium mb-1"
+                className="mb-1 block text-sm font-medium"
                 htmlFor="password"
               >
                 Password
@@ -86,14 +69,20 @@ const LoginPage: FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                disabled={isLoading}
+                disabled={loginMutation.isPending}
               />
             </div>
-            {error && (
-              <p className="text-sm font-medium text-red-600">{error}</p>
+            {loginMutation.error && (
+              <p className="text-sm font-medium text-red-600">
+                {loginMutation.error.message}
+              </p>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loginMutation.isPending}
+            >
+              {loginMutation.isPending ? "Logging in..." : "Login"}
             </Button>
           </form>
         </CardContent>
@@ -102,7 +91,7 @@ const LoginPage: FC = () => {
             Don't have an account?{" "}
             <Link
               to="/register"
-              className="font-medium text-primary hover:underline"
+              className="text-primary font-medium hover:underline"
             >
               Sign up
             </Link>

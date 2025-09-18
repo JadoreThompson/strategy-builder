@@ -1,13 +1,15 @@
-import { HTTP_BASE_URL } from "@/config";
-import useFetch from "@/hooks/useFetch";
+import {
+  useDeploymentsByVersionQuery,
+  useStopDeploymentMutation,
+} from "@/hooks/deployments-hooks";
+import type { DeploymentStatus } from "@/openapi";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@radix-ui/react-popover";
 import { Ellipsis, OctagonX } from "lucide-react";
-import { type FC, useState } from "react";
-import { createPortal } from "react-dom";
+import { type FC, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -22,22 +24,6 @@ import {
   TableRow,
 } from "./ui/table";
 
-type DeploymentStatus =
-  | "not_deployed"
-  | "pending"
-  | "deployed"
-  | "failed"
-  | "stopped";
-
-interface Deployment {
-  deployment_id: string;
-  account_id: string;
-  account_name: string;
-  version_id: string;
-  status: DeploymentStatus;
-  created_at: string;
-}
-
 const getRandomWord = (length: number) => {
   const chars = "abcdefghijklmnopqrstuvwxyz";
   let result = "";
@@ -51,40 +37,16 @@ const getRandomWord = (length: number) => {
 };
 
 const StopDeploymentConfirmationModal: FC<{
-  deploymentId: string;
   onClose: () => void;
-  onSuccess: () => void;
-}> = ({ deploymentId, onClose, onSuccess }) => {
+  onSubmit: () => void;
+}> = ({ onClose, onSubmit }) => {
   const [confirmationText, setConfirmationText] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [randWord] = useState<string>(getRandomWord(6));
 
-  const handleDelete = async () => {
-    try {
-      const rsp = await fetch(
-        `${HTTP_BASE_URL}/deployments/${deploymentId}/stop`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-
-      if (!rsp.ok) {
-        const data = await rsp.json();
-        throw new Error(data.error || "Failed to stop deployment");
-      }
-
-      onSuccess();
-    } catch (error) {
-      console.error("Failed to stop deployment:", error);
-      setError(`${error instanceof Error ? error.message : "Unknown error"}`);
-    }
-  };
-
   return (
-    <Card className="z-50 fixed inset-0 flex items-center justify-center bg-black/30">
-      <div className="bg-white p-6 rounded-md shadow-lg w-full max-w-md">
-        <h2 className="text-lg font-bold mb-4">Stop Deployment</h2>
+    <Card className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="w-full max-w-md rounded-md bg-white p-6 shadow-lg">
+        <h2 className="mb-4 text-lg font-bold">Stop Deployment</h2>
         <p className="mb-4 text-sm">
           This action cannot be undone. To confirm, please type{" "}
           <strong className="text-red-600">{randWord}</strong> in the box below.
@@ -95,9 +57,6 @@ const StopDeploymentConfirmationModal: FC<{
           placeholder={randWord}
           className="mb-4"
         />
-        {error && (
-          <span className="text-red-500 font-semibold">{error}</span>
-        )}
         <div className="flex justify-end space-x-2">
           <Button
             variant="outline"
@@ -108,7 +67,7 @@ const StopDeploymentConfirmationModal: FC<{
           </Button>
           <Button
             variant="destructive"
-            onClick={handleDelete}
+            onClick={onSubmit}
             disabled={confirmationText !== randWord}
             className="cursor-pointer"
           >
@@ -119,7 +78,6 @@ const StopDeploymentConfirmationModal: FC<{
     </Card>
   );
 };
-
 
 const DeploymentBadge: FC<{ status: DeploymentStatus; className: string }> = ({
   status,
@@ -150,112 +108,36 @@ const DeploymentBadge: FC<{ status: DeploymentStatus; className: string }> = ({
   );
 };
 
-const DeploymentsTable: FC<{ versionId: string, refreshCounter: number }> = ({ versionId, refreshCounter }) => {
-  // const [counter, setCounter] = useState<number>(0);
-  const [showCreateCard, setShowCreateCard] = useState<boolean>(false);
-  const [showStopDeployment, setShowStopDeployment] = useState<boolean>(false);
-  const [deploymentId, setDeploymentId] = useState<string | null>(null);
-
-  const {
-    data: deployments,
-    loading,
-    error,
-  } = useFetch<Deployment[]>(
-    `${HTTP_BASE_URL}/deployments/by-version/${versionId}?refresh=${refreshCounter}`,
-    { credentials: "include" }
+const DeploymentsTable: FC<{ versionId: string; refreshCounter: number }> = ({
+  versionId,
+  refreshCounter,
+}) => {
+  const [deploymentId, setDeploymentId] = useState<string | undefined>(
+    undefined,
   );
 
-  const handleStopDeployment = async (deploymentId: string) => {
-    setDeploymentId(deploymentId);
-    setShowStopDeployment(true);
-  };
+  const deploymentsByVersionQuery = useDeploymentsByVersionQuery(versionId);
+  const stopDeploymentMutation = useStopDeploymentMutation();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    const fd = new FormData(e.currentTarget);
-    const account_id = fd.get("account_id");
-    const instrument = fd.get("instrument");
-
-    if (!account_id) {
-      toast("Error: Please select an account.");
-      return;
-    }
-
-    const rsp = await fetch(`${HTTP_BASE_URL}/deployments/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        account_id,
-        version_id: versionId,
-        instrument,
-      }),
-    });
-
-    if (rsp.ok) {
-      toast("Deployment initiated successfully.");
-      setCounter((prev) => prev + 1);
-    } else {
-      const data = await rsp.json();
-      toast(`Error: ${data.detail || "Failed to create deployment."}`);
-    }
-
-    setShowCreateCard(false);
-  };
+  useEffect(() => {
+    deploymentsByVersionQuery.refetch();
+  }, [refreshCounter]);
 
   return (
     <>
-      {/* {showCreateCard &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <CreateDeploymentCard
-            accounts={accounts || []}
-            loading={accountsLoading}
-            onSubmit={handleSubmit}
-            onClose={() => setShowCreateCard(false)}
-          />,
-          document.body
-        )} */}
+      {deploymentId && (
+        <StopDeploymentConfirmationModal
+          onClose={() => setDeploymentId(undefined)}
+          onSubmit={() =>
+            stopDeploymentMutation
+              .mutateAsync({ deploymentId, versionId })
+              .then(() => deploymentsByVersionQuery.refetch())
+              .catch((err) => toast(`Error: ${err.message}`))
+              .finally(() => setDeploymentId(undefined))
+          }
+        />
+      )}
 
-      {showStopDeployment &&
-        deploymentId &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <StopDeploymentConfirmationModal
-            deploymentId={deploymentId}
-            onClose={() => {
-              setShowStopDeployment(false);
-              setDeploymentId(null);
-            }}
-            onSuccess={() => {
-              setShowStopDeployment(false);
-              setDeploymentId(null);
-              setCounter((prev) => prev + 1);
-            }}
-          />,
-          document.body
-        )}
-
-      {/* <div className="w-full h-7 relative mb-3">
-        <div className="h-full absolute right-0 flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setCounter((prev) => prev + 1)}
-            className="h-full cursor-pointer"
-          >
-            <RotateCw />
-          </Button>
-          <Button
-            onClick={() => setShowCreateCard(true)}
-            className="h-full cursor-pointer"
-          >
-            Deploy
-          </Button>
-        </div>
-      </div> */}
       <Table>
         <TableHeader>
           <TableRow>
@@ -267,12 +149,20 @@ const DeploymentsTable: FC<{ versionId: string, refreshCounter: number }> = ({ v
           </TableRow>
         </TableHeader>
         <TableBody>
-          {!loading && !error && (
+          {deploymentsByVersionQuery.isPending && (
+            <TableRow>
+              <TableCell colSpan={4} className="h-50">
+                <Skeleton className="h-full w-full bg-gray-100" />
+              </TableCell>
+            </TableRow>
+          )}
+
+          {deploymentsByVersionQuery.data && (
             <>
-              {deployments!.length > 0 ? (
-                deployments!.map((d) => (
+              {deploymentsByVersionQuery.data.length > 0 ? (
+                deploymentsByVersionQuery.data.map((d) => (
                   <TableRow key={d.deployment_id}>
-                    <TableCell className="font-medium truncate max-w-[12ch]">
+                    <TableCell className="max-w-[12ch] truncate font-medium">
                       {d.account_id.slice(0, 8)}...
                     </TableCell>
                     <TableCell>{d.account_name}</TableCell>
@@ -290,7 +180,7 @@ const DeploymentsTable: FC<{ versionId: string, refreshCounter: number }> = ({ v
                         <PopoverTrigger asChild>
                           <Button
                             variant="ghost"
-                            className="h-8 w-8 p-0 cursor-pointer !bg-transparent"
+                            className="h-8 w-8 cursor-pointer !bg-transparent p-0"
                           >
                             <span className="sr-only">Open menu</span>
                             <Ellipsis className="h-4 w-4" />
@@ -298,19 +188,17 @@ const DeploymentsTable: FC<{ versionId: string, refreshCounter: number }> = ({ v
                         </PopoverTrigger>
                         <PopoverContent
                           align="end"
-                          className="w-fit p-1 border-1 border-gray-100 shadow-sm bg-white"
+                          className="w-fit border-1 border-gray-100 bg-white p-1 shadow-sm"
                         >
                           <Button
                             variant="ghost"
-                            className="w-full h-8 justify-start text-xs font-normal hover:bg-red-50 hover:text-red-600 text-red-600 cursor-pointer"
-                            onClick={() =>
-                              handleStopDeployment(d.deployment_id)
-                            }
+                            className="h-8 w-full cursor-pointer justify-start text-xs font-normal text-red-600 hover:bg-red-50 hover:text-red-600"
+                            onClick={() => setDeploymentId(d.deployment_id)}
                             disabled={["pending", "stopped", "failed"].includes(
-                              d.status
+                              d.status,
                             )}
                           >
-                            <OctagonX className="w-3 h-3" />
+                            <OctagonX className="h-3 w-3" />
                             Stop Deployment
                           </Button>
                         </PopoverContent>
@@ -321,7 +209,7 @@ const DeploymentsTable: FC<{ versionId: string, refreshCounter: number }> = ({ v
               ) : (
                 <TableRow>
                   <TableCell colSpan={4} className="h-50 !bg-gray-100">
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="flex h-full w-full items-center justify-center">
                       <span>No deployments</span>
                     </div>
                   </TableCell>
@@ -330,19 +218,11 @@ const DeploymentsTable: FC<{ versionId: string, refreshCounter: number }> = ({ v
             </>
           )}
 
-          {loading && (
+          {deploymentsByVersionQuery.error && (
             <TableRow>
               <TableCell colSpan={4} className="h-50">
-                <Skeleton className="w-full h-full bg-gray-100" />
-              </TableCell>
-            </TableRow>
-          )}
-
-          {error && (
-            <TableRow>
-              <TableCell colSpan={4} className="h-50">
-                <div className="w-full h-full flex items-center justify-center">
-                  <span>{error.message}</span>
+                <div className="flex h-full w-full items-center justify-center">
+                  <span>{deploymentsByVersionQuery.error.message}</span>
                 </div>
               </TableCell>
             </TableRow>

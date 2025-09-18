@@ -9,41 +9,15 @@ const CreateStrategyPage: FC = () => {
   const navigate = useNavigate();
   const createStrategyMutation = useCreateStrategyMutation();
 
-  const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  // const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-
-  //   setLoading(true);
-
-  //   const rsp = await fetch(HTTP_BASE_URL + "/strategies", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     credentials: "include",
-  //     body: JSON.stringify({ name, prompt }),
-  //   });
-
-  //   const data = await rsp.json();
-
-  //   if (!rsp.ok) {
-  //     setError(data.error);
-  //   } else {
-  //     navigate(`/strategies/versions/${data.version_id}`);
-  //   }
-
-  //   setLoading(false);
-  // };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    createStrategyMutation.mutateAsync({ name, prompt }).then((data) => {
-      console.log(data);
-      // navigate(`/strategies/versions/${data.version_id}`);
-    });
+    createStrategyMutation
+      .mutateAsync({ name, prompt })
+      .then((data) => navigate(`/strategies/versions/${data.version_id}`));
   };
 
   return (
@@ -79,12 +53,6 @@ const CreateStrategyPage: FC = () => {
             />
           </div>
 
-          {/* {error && (
-            <div className="w-full text-center">
-              <span className="font-semibold text-red-500">{error}</span>
-            </div>
-          )} */}
-
           {createStrategyMutation.isError && (
             <div className="w-full text-center">
               <span className="font-semibold text-red-500">
@@ -95,11 +63,9 @@ const CreateStrategyPage: FC = () => {
 
           <Button
             type="submit"
-            // disabled={loading || !name || !prompt}
             disabled={createStrategyMutation.isPending || !name || !prompt}
             className="w-full cursor-pointer rounded-md px-4 py-2 text-white disabled:bg-gray-900"
           >
-            {/* {loading ? "Creating..." : "Create Strategy"} */}
             {createStrategyMutation.isPending
               ? "Creating..."
               : "Create Strategy"}

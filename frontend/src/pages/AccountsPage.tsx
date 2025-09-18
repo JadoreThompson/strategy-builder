@@ -14,27 +14,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { HTTP_BASE_URL } from "@/config";
-import { useAccountsQuery } from "@/hooks/accounts-hooks";
+import {
+  useAccountsQuery,
+  useCreateAccountMutation,
+  useDeleteAccountMutation,
+  useUpdateAccountMutation,
+} from "@/hooks/accounts-hooks";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
-import type { AccountResponse } from "@/lib/types/accountResponse";
+
+import type {
+  AccountCreate,
+  AccountDetailResponse,
+  AccountUpdate,
+} from "@/openapi";
 import dayjs from "dayjs";
 import { Ellipsis, Pencil, Search, Trash2 } from "lucide-react";
 import { useState, type FC } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
-interface AccountDetailResponse extends AccountResponse {
-  login: string;
-  server: string;
-}
-
 const AccountFormModal: FC<{
-  initialData?: AccountDetailResponse | null;
+  accountData?: AccountDetailResponse | null;
   onClose: () => void;
   onSuccess: () => void;
-}> = ({ initialData, onClose, onSuccess }) => {
-  const isEditing = !!initialData;
+}> = ({ accountData, onClose, onSuccess }) => {
+  const isUpdating = !!accountData;
+
+  const createAccountMutation = useCreateAccountMutation();
+  const updateAccountMutation = useUpdateAccountMutation();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,37 +49,16 @@ const AccountFormModal: FC<{
     const body: { [key: string]: any } = Object.fromEntries(formData.entries());
 
     // Don't send an empty password on update unless it's explicitly changed
-    if (isEditing && !body.password) {
+    if (isUpdating && !body.password) {
       delete body.password;
-    }
-
-    const url = isEditing
-      ? `${HTTP_BASE_URL}/accounts/${initialData.account_id}`
-      : `${HTTP_BASE_URL}/accounts`;
-
-    const method = isEditing ? "PATCH" : "POST";
-
-    try {
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Failed to ${method} account.`);
-      }
-
-      onSuccess();
-    } catch (error) {
-      console.error("Failed to submit account:", error);
-      alert(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      updateAccountMutation
+        .mutateAsync({
+          accountId: accountData.account_id,
+          data: body as AccountUpdate,
+        })
+        .then(onSuccess);
+    } else {
+      createAccountMutation.mutateAsync(body as AccountCreate).then(onSuccess);
     }
   };
 
@@ -80,7 +66,7 @@ const AccountFormModal: FC<{
     <Card className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="w-full max-w-md rounded-md bg-white p-6 shadow-lg">
         <h2 className="mb-4 text-lg font-bold">
-          {isEditing ? "Update Account" : "Create Account"}
+          {isUpdating ? "Update Account" : "Create Account"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -88,7 +74,7 @@ const AccountFormModal: FC<{
             <Input
               type="text"
               name="name"
-              defaultValue={initialData?.name}
+              defaultValue={accountData?.name}
               placeholder="My Trading Account"
               className="w-full rounded-md border px-3 py-2"
               required
@@ -99,7 +85,7 @@ const AccountFormModal: FC<{
             <Input
               type="text"
               name="login"
-              defaultValue={initialData?.login}
+              defaultValue={accountData?.login}
               placeholder="123456"
               className="w-full rounded-md border px-3 py-2"
               required
@@ -111,10 +97,10 @@ const AccountFormModal: FC<{
               type="password"
               name="password"
               placeholder={
-                isEditing ? "Leave blank to keep unchanged" : "••••••••"
+                isUpdating ? "Leave blank to keep unchanged" : "••••••••"
               }
               className="w-full rounded-md border px-3 py-2"
-              required={!isEditing}
+              required={!isUpdating}
             />
           </div>
           <div>
@@ -122,7 +108,7 @@ const AccountFormModal: FC<{
             <Input
               type="text"
               name="server"
-              defaultValue={initialData?.server}
+              defaultValue={accountData?.server}
               placeholder="Broker-Server"
               className="w-full rounded-md border px-3 py-2"
               required
@@ -133,12 +119,26 @@ const AccountFormModal: FC<{
             <select
               name="platform"
               className="w-full rounded-md border bg-white px-3 py-2"
-              defaultValue={initialData?.platform || "mt5"}
+              defaultValue={accountData?.platform || "mt5"}
               required
             >
               <option value="mt5">MT5</option>
             </select>
           </div>
+          {isUpdating && updateAccountMutation.error && (
+            <div className="flex items-center justify-center">
+              <span className="text-center text-red-500">
+                {updateAccountMutation.error.message}
+              </span>
+            </div>
+          )}
+          {!isUpdating && createAccountMutation.error && (
+            <div className="flex items-center justify-center">
+              <span className="text-center text-red-500">
+                {createAccountMutation.error.message}
+              </span>
+            </div>
+          )}
           <div className="flex justify-end space-x-2">
             <Button
               type="button"
@@ -162,33 +162,15 @@ const AccountFormModal: FC<{
 };
 
 const DeleteConfirmationModal: FC<{
-  account: AccountResponse;
+  account: AccountDetailResponse;
   onClose: () => void;
   onSuccess: () => void;
 }> = ({ account, onClose, onSuccess }) => {
   const [confirmationText, setConfirmationText] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const deleteAccountMutation = useDeleteAccountMutation();
 
   const handleDelete = async () => {
-    try {
-      const rsp = await fetch(
-        `${HTTP_BASE_URL}/accounts/${account.account_id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        },
-      );
-
-      if (!rsp.ok) {
-        const data = await rsp.json();
-        throw new Error(data.error || "Failed to delete account");
-      }
-
-      onSuccess();
-    } catch (error) {
-      console.error("Failed to delete account:", error);
-      setError(`${error instanceof Error ? error.message : "Unknown error"}`);
-    }
+    deleteAccountMutation.mutateAsync(account.account_id).then(onSuccess);
   };
 
   return (
@@ -206,8 +188,10 @@ const DeleteConfirmationModal: FC<{
           placeholder={account.name}
           className="mb-4"
         />
-        {error && (
-          <span className="text-sm font-semibold text-red-500">{error}</span>
+        {deleteAccountMutation.error && (
+          <span className="text-sm font-semibold text-red-500">
+            {deleteAccountMutation.error.message}
+          </span>
         )}
         <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={onClose}>
@@ -262,7 +246,7 @@ const AccountsPage: FC = () => {
         curAccount &&
         createPortal(
           <AccountFormModal
-            initialData={curAccount}
+            accountData={curAccount}
             onClose={() => {
               setIsEditing(false);
               setCurAccount(undefined);

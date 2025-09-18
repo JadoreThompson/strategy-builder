@@ -1,11 +1,16 @@
 import { queryKeys } from "@/lib/query/query-keys";
 import { handleApi } from "@/lib/utils/base";
 import {
+  createAccountAccountsPost,
+  deleteAccountAccountsAccountIdDelete,
   getAccountAccountsAccountIdGet,
   getAccountsAccountsGet,
+  updateAccountAccountsAccountIdPatch,
+  type AccountCreate,
+  type AccountUpdate,
   type GetAccountsAccountsGetParams,
 } from "@/openapi";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useAccountsQuery(params?: GetAccountsAccountsGetParams) {
   return useQuery({
@@ -14,12 +19,53 @@ export function useAccountsQuery(params?: GetAccountsAccountsGetParams) {
   });
 }
 
-export function useAccountQuery(params: string) {
+export function useAccountQuery(accountId: string) {
   return useQuery({
-    queryKey: queryKeys.account(params),
+    queryKey: queryKeys.account(accountId),
     queryFn: async () =>
-      handleApi(await getAccountAccountsAccountIdGet(params)),
-    enabled: !!params,
+      handleApi(await getAccountAccountsAccountIdGet(accountId)),
+    enabled: !!accountId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCreateAccountMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: AccountCreate) =>
+      handleApi(await createAccountAccountsPost(data)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts() });
+    },
+  });
+}
+
+export function useUpdateAccountMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { accountId: string; data: AccountUpdate }) =>
+      handleApi(
+        await updateAccountAccountsAccountIdPatch(
+          params.accountId,
+          params.data,
+        ),
+      ),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.account(variables.accountId),
+      });
+    },
+  });
+}
+
+export function useDeleteAccountMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (accountId: string) =>
+      handleApi(await deleteAccountAccountsAccountIdDelete(accountId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.accounts() });
+    },
   });
 }

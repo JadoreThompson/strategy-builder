@@ -9,44 +9,19 @@ import {
 } from "@/components/ui/table";
 import { useStrategiesQuery } from "@/hooks/strategies-hooks";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
+import dayjs from "dayjs";
 import { Search } from "lucide-react";
-import { useEffect, useState, type FC } from "react";
+import { useState, type FC } from "react";
 import { Link, useNavigate } from "react-router";
 
-interface StrategiesResponse {
-  strategy_id: string;
-  name: string;
-  created_at: string;
-}
 
 const StrategiesPage: FC = () => {
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState("");
-  const [strategies, setStrategies] = useState<StrategiesResponse[]>([]);
-
-  // const { data, loading: isLoading } = useFetch<StrategiesResponse[]>(
-  //   HTTP_BASE_URL +
-  //     "/strategies" +
-  //     (searchText ? `?name=${encodeURIComponent(searchText)}` : ""),
-  //   {
-  //     credentials: "include",
-  //   }
-  // );
 
   const strategiesQuery = useStrategiesQuery({
     name: searchText,
   });
-
-  useEffect(() => {
-    if (strategiesQuery.data) {
-      setStrategies(
-        strategiesQuery.data.map((d) => ({
-          ...d,
-          created_at: new Date(d.created_at).toISOString().split("T")[0],
-        })),
-      );
-    }
-  }, [strategiesQuery.data]);
 
   return (
     <DashboardLayout>
@@ -79,8 +54,8 @@ const StrategiesPage: FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {strategies.length ? (
-              strategies.map((strat, idx) => (
+            {strategiesQuery.data ? (
+              strategiesQuery.data.map((strat, idx) => (
                 <TableRow
                   key={idx}
                   onClick={() => navigate(`/strategies/${strat.strategy_id}`)}
@@ -88,7 +63,9 @@ const StrategiesPage: FC = () => {
                 >
                   <TableCell>{`${strat.strategy_id.slice(0, 8)}...`}</TableCell>
                   <TableCell>{strat.name}</TableCell>
-                  <TableCell>{strat.created_at}</TableCell>
+                  <TableCell>
+                    {dayjs(strat.created_at).format("YYYY-MM-DD")}
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
@@ -113,7 +90,6 @@ const StrategiesPage: FC = () => {
           </TableBody>
         </Table>
       </div>
-      <Link to={""} />
     </DashboardLayout>
   );
 };

@@ -1,56 +1,37 @@
 import BacktestBadge from "@/components/backtest-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HTTP_BASE_URL } from "@/config";
-import useFetch from "@/hooks/useFetch";
+import {
+  useBacktestsQuery,
+  useStrategyVersionsQuery,
+} from "@/hooks/strategy-version-hooks";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
-import { type TaskStatus } from "@/lib/types/taskStatus";
+import type { StrategyVersionsResponse } from "@/openapi";
 import { Search } from "lucide-react";
-import { useEffect, useState, type FC } from "react";
+import { useState, type FC } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
-interface BacktestChartProps {
+const BacktestChart: FC<{
   versionId: string;
-}
+}> = ({ versionId }) => {
+  const backtestsQuery = useBacktestsQuery(versionId);
 
-interface ChartDataPoint {
-  date: string;
-  pnl: number;
-}
-
-const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
-  const [data, setData] = useState<ChartDataPoint[] | null>(null);
-  const { data: backtests } = useFetch<
-    { backtest_id: string; created_at: string }[]
-  >(`${HTTP_BASE_URL}/strategies/versions/${versionId}/backtests`, {
-    credentials: "include",
-  });
-
-  useEffect(() => {
-    if (!backtests || !backtests.length) return;
-
-    const latestBacktest = backtests[backtests.length - 1];
-
-    if (!latestBacktest) return;
-
-    fetch(
-      `${HTTP_BASE_URL}/backtests/${latestBacktest.backtest_id}/positions-chart`,
-      { credentials: "include" },
-    )
-      .then((res) => res.json())
-      .then((chartData: ChartDataPoint[]) => setData(chartData))
-      .catch(console.error);
-  }, [backtests]);
-
-  if (!data)
+  if (backtestsQuery.isPending)
     return (
       <div className="flex h-full items-center justify-center">
         Loading chart...
       </div>
     );
 
-  if (!data.length) {
+  if (backtestsQuery.error)
+    return (
+      <div className="flex h-full items-center justify-center">
+        Error loading chart...
+      </div>
+    );
+
+  if (backtestsQuery.data.length) {
     return (
       <div className="flex h-full items-center justify-center">
         No backtests
@@ -60,7 +41,7 @@ const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data}>
+      <AreaChart data={backtestsQuery.data}>
         <defs>
           <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#8297ca" stopOpacity={0.8} />
@@ -98,37 +79,18 @@ const BacktestChart: FC<BacktestChartProps> = ({ versionId }) => {
   );
 };
 
-interface StrategyVersionPerformance {
-  total_pnl: number | null;
-  max_drawdown: number | null;
-  win_rate: number | null;
-  sharpe_ratio: number | null;
-}
-
-interface StrategyVersionCardProps {
-  version_id: string;
-  name: string;
-  backtestStatus?: TaskStatus;
-  stats: StrategyVersionPerformance;
-}
-
-const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
-  version_id,
-  name,
-  backtestStatus,
-  stats,
-}) => {
+const StrategyVersionCard: FC<StrategyVersionsResponse> = (props) => {
   return (
     <Link
-      to={`/strategies/versions/${version_id}`}
+      to={`/strategies/versions/${props.version_id}`}
       className="grid h-full w-full cursor-pointer grid-cols-2 gap-2 border-1 border-gray-200 p-3 hover:shadow-md hover:shadow-gray-100"
     >
       <div className="flex flex-col gap-7 py-3">
         <div className="flex items-center gap-3">
-          <h4 className="text-lg font-medium">{name}</h4>
-          {backtestStatus && (
+          <h4 className="text-lg font-medium">{props.name}</h4>
+          {props.backtest?.status && (
             <BacktestBadge
-              status={backtestStatus}
+              status={props.backtest.status}
               className="h-fit w-fit p-1 text-xs"
             />
           )}
@@ -138,72 +100,46 @@ const StrategyVersionCard: FC<StrategyVersionCardProps> = ({
             <div className="flex w-1/2 justify-between">
               <span className="text-sm">Pnl</span>
               <span className="text-md font-semibold">
-                {typeof stats.total_pnl === "number" ? stats.total_pnl : "-"}
+                {typeof props.backtest?.total_pnl === "number"
+                  ? props.backtest.total_pnl
+                  : "-"}
               </span>
             </div>
             <div className="flex w-1/2 justify-between">
               <span className="text-sm">Win Rate</span>
               <span className="text-md font-semibold">
-                {typeof stats.win_rate === "number" ? stats.win_rate : "-"}
+                {typeof props.backtest?.win_rate === "number"
+                  ? props.backtest.win_rate
+                  : "-"}
               </span>
             </div>
           </div>
           <div className="flex flex-row justify-between gap-2">
             <div className="flex w-1/2 justify-between">
               <span className="text-sm">Max Drawdown</span>
-              <span className="text-md font-semibold">
-                {typeof stats.max_drawdown === "number"
-                  ? stats.max_drawdown
-                  : "-"}
-              </span>
+              <span className="text-md font-semibold">-</span>
             </div>
             <div className="flex w-1/2 justify-between">
               <span className="text-sm">Sharpe Ratio</span>
-              <span className="text-md font-semibold">
-                {typeof stats.sharpe_ratio === "number"
-                  ? stats.sharpe_ratio
-                  : "-"}
-              </span>
+              <span className="text-md font-semibold">-</span>
             </div>
           </div>
         </div>
       </div>
       {/* Stats Chart */}
       <div className="h-full">
-        <BacktestChart versionId={version_id} />
+        <BacktestChart versionId={props.version_id} />
       </div>
     </Link>
   );
 };
 
-interface BacktestResults {
-  status: TaskStatus;
-  total_pnl: number | null;
-  starting_balance: number | null;
-  end_balance: number | null;
-  total_trades: number | null;
-  win_rate: number | null;
-  created_at: string; // ISO datetime string
-}
-
-interface StrategyVersionsResponse {
-  version_id: string; // UUID as string
-  name: string;
-  created_at: string; // ISO datetime string
-  backtest: BacktestResults | null;
-}
-
 const StrategiesVersionsPage: FC = () => {
   const { strategyId } = useParams();
   const navigate = useNavigate();
-  const [searchText, setSearchText] = useState("");
+  const strategiesQuery = useStrategyVersionsQuery({ strategyId: strategyId! });
 
-  const { data } = useFetch<StrategyVersionsResponse[]>(
-    HTTP_BASE_URL +
-      `/strategies/${strategyId}/versions` +
-      (searchText ? `?name=${encodeURIComponent(searchText)}` : ""),
-    { credentials: "include" },
-  );
+  const [searchText, setSearchText] = useState("");
 
   return (
     <DashboardLayout>
@@ -227,24 +163,10 @@ const StrategiesVersionsPage: FC = () => {
       </div>
 
       <div className="flex flex-col gap-2">
-        {(data ?? []).length ? (
-          data!.map((version) => (
+        {strategiesQuery.data ? (
+          strategiesQuery.data.map((version) => (
             <div key={version.version_id} className="h-50 w-full">
-              <StrategyVersionCard
-                version_id={version.version_id}
-                name={version.name}
-                backtestStatus={version.backtest?.status}
-                stats={
-                  version.backtest
-                    ? {
-                        max_drawdown: 50.0,
-                        win_rate: version.backtest.win_rate,
-                        sharpe_ratio: 6.7,
-                        total_pnl: version.backtest.total_pnl,
-                      }
-                    : ({} as StrategyVersionPerformance)
-                }
-              />
+              <StrategyVersionCard {...version} />
             </div>
           ))
         ) : (
