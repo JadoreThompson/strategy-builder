@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import AccountsPage from "./pages/AccountsPage";
 import CreateStrategyPage from "./pages/CreateStrategyPage";
 import CreateVersionPage from "./pages/CreateVersionPage";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import StrategiesPage from "./pages/StrategiesPage";
@@ -12,6 +13,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<HomePage/>}/>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
