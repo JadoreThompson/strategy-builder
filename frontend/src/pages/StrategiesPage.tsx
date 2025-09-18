@@ -8,12 +8,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useStrategiesQuery } from "@/hooks/strategies-hooks";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { DashboardLayout } from "@/layouts/dashboard-layout";
 import dayjs from "dayjs";
 import { Search } from "lucide-react";
 import { useState, type FC } from "react";
 import { Link, useNavigate } from "react-router";
-
 
 const StrategiesPage: FC = () => {
   const navigate = useNavigate();

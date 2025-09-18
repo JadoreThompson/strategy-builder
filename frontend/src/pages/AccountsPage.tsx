@@ -20,7 +20,7 @@ import {
   useDeleteAccountMutation,
   useUpdateAccountMutation,
 } from "@/hooks/accounts-hooks";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { DashboardLayout } from "@/layouts/dashboard-layout";
 
 import type {
   AccountCreate,

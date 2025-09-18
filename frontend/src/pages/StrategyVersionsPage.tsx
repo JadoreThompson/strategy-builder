@@ -5,7 +5,7 @@ import {
   useBacktestsQuery,
   useStrategyVersionsQuery,
 } from "@/hooks/strategy-version-hooks";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { DashboardLayout } from "@/layouts/dashboard-layout";
 import type { StrategyVersionsResponse } from "@/openapi";
 import { Search } from "lucide-react";
 import { useState, type FC } from "react";

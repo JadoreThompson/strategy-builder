@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCreateStrategyMutation } from "@/hooks/strategies-hooks";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { DashboardLayout } from "@/layouts/dashboard-layout";
 import { useEffect, useState, type FC } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 

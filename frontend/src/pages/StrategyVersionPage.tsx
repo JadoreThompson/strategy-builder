@@ -20,7 +20,7 @@ import {
   useDeleteStrategyVersionMutation,
   useStrategyVersionQuery,
 } from "@/hooks/strategy-version-hooks";
-import { DashboardLayout } from "@/layouts/DashboardLayout";
+import { DashboardLayout } from "@/layouts/dashboard-layout";
 import type { BacktestCreate } from "@/openapi";
 import {
   Ellipsis,
