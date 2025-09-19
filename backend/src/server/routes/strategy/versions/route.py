@@ -7,6 +7,7 @@ from fastapi import (
     Depends,
     BackgroundTasks,
     HTTPException,
+    Query,
     WebSocket,
 )
 from fastapi.websockets import WebSocketState
@@ -14,12 +15,13 @@ from starlette.websockets import WebSocketDisconnect
 from sqlalchemy import insert, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import PAGE_SIZE
 from core.enums import TaskStatus
 from db_models import Positions, Strategies, StrategyVersions, Backtests
 from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.exc import JWTError
-from server.models import StrategyVersionResponse, BacktestResult
+from server.models import PaginatedResponse, StrategyVersionResponse, BacktestResult
 from server.services import JWTService
 from server.typing import JWTPayload
 from .connection_manager import ConnectionManager
@@ -99,9 +101,12 @@ async def get_strategy_version(
     return version
 
 
-@route.get("/versions/{version_id}/backtests", response_model=list[BacktestResult])
+@route.get(
+    "/versions/{version_id}/backtests", response_model=PaginatedResponse[BacktestResult]
+)
 async def get_backtests(
     version_id: UUID,
+    page: int = Query(1, ge=1),
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
@@ -117,21 +122,29 @@ async def get_backtests(
             Backtests.version_id == version_id, Backtests.version_id.in_(owned_versions)
         )
         .order_by(Backtests.created_at.desc())
+        .offset((page - 1) * PAGE_SIZE)
+        .limit(PAGE_SIZE + 1)
     )
+    rows = res.all()
 
-    return [
-        BacktestResult(
-            backtest_id=bt.backtest_id,
-            status=bt.status,
-            total_pnl=bt.total_pnl,
-            starting_balance=bt.starting_balance,
-            end_balance=bt.end_balance,
-            total_trades=bt.total_trades,
-            win_rate=bt.win_rate,
-            created_at=bt.created_at,
-        )
-        for bt in res.all()
-    ]
+    return PaginatedResponse[BacktestResult](
+        page=page,
+        size=min(len(rows), PAGE_SIZE),
+        has_next=len(rows) > PAGE_SIZE,
+        data=[
+            BacktestResult(
+                backtest_id=bt.backtest_id,
+                status=bt.status,
+                total_pnl=bt.total_pnl,
+                starting_balance=bt.starting_balance,
+                end_balance=bt.end_balance,
+                total_trades=bt.total_trades,
+                win_rate=bt.win_rate,
+                created_at=bt.created_at,
+            )
+            for bt in rows[:PAGE_SIZE]
+        ],
+    )
 
 
 @route.get("/versions/{version_id}/positions", response_model=list[Position])
