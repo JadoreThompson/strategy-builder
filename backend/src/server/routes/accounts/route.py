@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import PAGE_SIZE
 from db_models import Accounts
 from server.dependencies import depends_db_sess, depends_jwt
+from server.models import PaginatedResponse
 from server.typing import JWTPayload
 from .models import AccountCreate, AccountResponse, AccountDetailResponse, AccountUpdate
 
@@ -44,9 +46,10 @@ async def create_account(
     return res
 
 
-@route.get("/", response_model=list[AccountDetailResponse])
+@route.get("/", response_model=PaginatedResponse[AccountDetailResponse])
 async def get_accounts(
     name: str | None = None,
+    page: int = 1,
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
@@ -55,20 +58,25 @@ async def get_accounts(
     if name:
         q = q.where(Accounts.name.like(f"%{name}%"))
 
-    res = await db_sess.scalars(q)
+    res = await db_sess.scalars(q.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE + 1))
     accounts = res.all()
 
-    return [
-        AccountDetailResponse(
-            account_id=acc.account_id,
-            name=acc.name,
-            login=acc.login,
-            server=acc.server,
-            platform=acc.platform,
-            created_at=acc.created_at,
-        )
-        for acc in accounts
-    ]
+    return PaginatedResponse[AccountDetailResponse](
+        page=page,
+        size=len(accounts),
+        has_next=len(accounts) > PAGE_SIZE,
+        data=[
+            AccountDetailResponse(
+                account_id=acc.account_id,
+                name=acc.name,
+                login=acc.login,
+                server=acc.server,
+                platform=acc.platform,
+                created_at=acc.created_at,
+            )
+            for acc in accounts
+        ],
+    )
 
 
 @route.get("/{account_id}", response_model=AccountDetailResponse)

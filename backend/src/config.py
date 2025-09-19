@@ -82,8 +82,8 @@ else:
     SYSTEM_PROMPT = open(fpath, "r").read()
 
 
+PAGE_SIZE = 10
+
 class Dummy:
     def put_nowait(self, *args, **kw): ...
-
-
 DEPLOYMENT_QUEUE: Queue = Dummy()  # Must be initialised by main.py
