@@ -225,9 +225,6 @@ class BacktestFuturesExchange(FuturesExchange):
     def close_position(
         self, position: Position, amount: Decimal
     ) -> tuple[bool, Position]:
-        # if amount == position.current_amount:
-        #     position.closed_at = self._last_tick.time
-        #     position.status = PositionStatus.CLOSED
         return (True, position)
 
     def close_all_positions(self) -> None:

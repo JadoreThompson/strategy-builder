@@ -1,16 +1,18 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import insert, select, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import DEPLOYMENT_QUEUE
+from server.models import PaginatedResponse
+from config import DEPLOYMENT_QUEUE, PAGE_SIZE
 from core.typing import DeploymentPayload
 from core.enums import DeploymentStatus, TaskStatus
 from db_models import Deployments, Accounts, StrategyVersions
 from server.dependencies import depends_db_sess, depends_jwt
+from server.models import DeploymentResponse
 from server.typing import JWTPayload
-from .models import DeploymentCreate, DeploymentResponse
+from .models import DeploymentCreate
 
 
 route = APIRouter(prefix="/deployments", tags=["deployments"])
@@ -91,37 +93,6 @@ async def get_deployment(
         status=deployment.status,
         created_at=deployment.created_at,
     )
-
-
-@route.get("/by-version/{version_id}", response_model=list[DeploymentResponse])
-async def get_deployments_for_version(
-    version_id: UUID,
-    jwt: JWTPayload = Depends(depends_jwt),
-    db_sess: AsyncSession = Depends(depends_db_sess),
-):
-    q = (
-        select(Deployments, Accounts.name)
-        .join(Accounts)
-        .where(
-            Deployments.version_id == version_id,
-            Accounts.user_id == jwt.sub,
-        )
-    )
-    res = await db_sess.execute(q)
-    deployments = res.all()
-
-    return [
-        DeploymentResponse(
-            deployment_id=d.deployment_id,
-            account_id=d.account_id,
-            account_name=acc_name,
-            instrument=d.instrument,
-            version_id=d.version_id,
-            status=d.status,
-            created_at=d.created_at,
-        )
-        for d, acc_name in deployments
-    ]
 
 
 @route.post("/{deployment_id}/stop")

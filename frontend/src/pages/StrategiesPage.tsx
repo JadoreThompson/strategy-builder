@@ -1,4 +1,5 @@
 import ScrollTop from "@/components/scroll-top";
+import Spinner from "@/components/spinner";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -109,12 +110,10 @@ const StrategiesPage: FC = () => {
             )}
           </TableBody>
         </Table>
-        <div ref={tableFooterIntersectionObserver.refObj}></div>
+        <div ref={tableFooterIntersectionObserver.elementRefObj}></div>
         {infiniteStrategiesQuery.isFetching &&
           infiniteStrategiesQuery.data?.pages.length && (
-            <div className="flex h-8 w-full items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-300 border-t-transparent"></div>
-            </div>
+            <Spinner />
           )}
       </div>
     </DashboardLayout>

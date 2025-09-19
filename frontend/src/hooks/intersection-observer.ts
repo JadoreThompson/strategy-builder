@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 
 const useIntersectionObserver = <T extends HTMLElement>(onIntersecting: () => void) => {
-  const refObj = useRef<T | null>(null);
+  const elementRefObj = useRef<T | null>(null);
 
   useEffect(() => {
-    if (!refObj.current) return;
+    if (!elementRefObj.current) return;
 
     const obs = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
@@ -14,18 +14,18 @@ const useIntersectionObserver = <T extends HTMLElement>(onIntersecting: () => vo
       });
     });
 
-    obs.observe(refObj.current);
+    obs.observe(elementRefObj.current);
 
     return () => {
-      if (refObj.current) {
-        obs.unobserve(refObj.current);
+      if (elementRefObj.current) {
+        obs.unobserve(elementRefObj.current);
       }
 
       obs.disconnect();
     };
-  }, [refObj]);
+  }, [elementRefObj]);
 
-  return { refObj };
+  return { elementRefObj };
 };
 
 export default useIntersectionObserver;

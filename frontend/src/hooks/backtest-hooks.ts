@@ -4,7 +4,7 @@ import {
   getBacktestPositionsChartBacktestsBacktestIdPositionsChartGet,
   getBacktestResultBacktestsBacktestIdGet,
 } from "@/openapi";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 export function useBacktestResultQuery(backtestId: string) {
   return useQuery({

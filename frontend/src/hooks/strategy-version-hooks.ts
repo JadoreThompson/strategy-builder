@@ -4,6 +4,7 @@ import {
   createBacktestStrategiesVersionsVersionIdBacktestPost,
   deleteVersionStrategiesVersionsVersionIdDelete,
   getBacktestsStrategiesVersionsVersionIdBacktestsGet,
+  getDeploymentsStrategiesVersionIdDeploymentsGet,
   getPositionsStrategiesVersionsVersionIdPositionsGet,
   getStrategyVersionStrategiesVersionsVersionIdGet,
   getStrategyVersionsStrategiesStrategyIdVersionsGet,
@@ -51,7 +52,6 @@ export function useInfiniteStrategyVersionsQuery(
       ),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
-      console.log("Hi there versions");
       if (lastPage.has_next) {
         return lastPage.page + 1;
       }
@@ -122,16 +122,16 @@ export function useBacktestsQuery(versionId: string) {
 
 export function useInfiniteBacktestsQuery(versionId: string) {
   return useInfiniteQuery({
-    queryKey: queryKeys.strategyVersionBacktests(versionId),
-    queryFn: async ({ pageParam = 1 }) =>
-      handleApi(
+    queryKey: ["strategy-version-backtests-query-key", versionId],
+    queryFn: async ({ pageParam = 1 }) => {
+      return handleApi(
         await getBacktestsStrategiesVersionsVersionIdBacktestsGet(versionId, {
           page: pageParam,
         }),
-      ),
+      );
+    },
     initialPageParam: 1,
-    getNextPageParam: (lastPage, pages) => {
-      console.log("Hi there backtests");
+    getNextPageParam: (lastPage) => {
       if (lastPage.has_next) {
         return lastPage.page + 1;
       }
@@ -148,5 +148,45 @@ export function usePositionsQuery(versionId: string) {
         await getPositionsStrategiesVersionsVersionIdPositionsGet(versionId),
       ),
     enabled: !!versionId,
+  });
+}
+
+export function useInfinitePositionsQuery(versionId: string) {
+  return useInfiniteQuery({
+    queryKey: ["strategy-version-positions-query-key", versionId],
+    queryFn: async ({ pageParam = 1 }) => {
+      return handleApi(
+        await getPositionsStrategiesVersionsVersionIdPositionsGet(versionId, {
+          page: pageParam,
+        }),
+      );
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.has_next) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
+  });
+}
+
+export function useInfiniteDeploymentsQuery(versionId: string) {
+  return useInfiniteQuery({
+    queryKey: ["strategy-version-deployments-query-key", versionId],
+    queryFn: async ({ pageParam = 1 }) => {
+      return handleApi(
+        await getDeploymentsStrategiesVersionIdDeploymentsGet(versionId, {
+          page: pageParam,
+        }),
+      );
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.has_next) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
   });
 }

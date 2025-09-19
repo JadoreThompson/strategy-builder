@@ -2,6 +2,7 @@ import useIntersectionObserver from "@/hooks/intersection-observer";
 import { useInfiniteBacktestsQuery } from "@/hooks/strategy-version-hooks";
 import React, { useEffect, type FC } from "react";
 import BacktestBadge from "./backtest-badge";
+import Spinner from "./spinner";
 import { Skeleton } from "./ui/skeleton";
 import {
   Table,
@@ -15,7 +16,6 @@ import {
 const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
   props,
 ) => {
-  // console.log(props.versionId)
   const infiniteBacktestsQuery = useInfiniteBacktestsQuery(props.versionId);
 
   const tableFooterIntersectionObserver =
@@ -28,14 +28,8 @@ const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
 
   useEffect(() => {
     infiniteBacktestsQuery.refetch();
-  }, [props.refreshCounter, infiniteBacktestsQuery]);
+  }, [props.refreshCounter]);
 
-  // const noBacktestsFound =
-  //   infiniteBacktestsQuery.data &&
-  //   (!infiniteBacktestsQuery.data.pages.length ||
-  //     !infiniteBacktestsQuery.data.pages[0].data.length);
-
-    console.log("hi")
   const backtestsFound =
     infiniteBacktestsQuery.data &&
     infiniteBacktestsQuery.data.pages.length &&
@@ -106,12 +100,9 @@ const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
           )}
         </TableBody>
       </Table>
-      <div ref={tableFooterIntersectionObserver.refObj} />
-      {infiniteBacktestsQuery.isFetchingNextPage && (
-        <div className="mt-4 flex h-8 w-full items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-300 border-t-transparent"></div>
-        </div>
-      )}
+
+      <div ref={tableFooterIntersectionObserver.elementRefObj} />
+      {infiniteBacktestsQuery.isFetchingNextPage && <Spinner />}
     </div>
   );
 };

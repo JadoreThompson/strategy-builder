@@ -15,7 +15,7 @@ const ScrollTop: FC = () => {
 
   return (
     <div
-      className={`fixed right-4 bottom-4 flex h-10 w-10 items-center justify-center rounded-full border-1 border-stone-300 shadow-sm transition-all duration-500 ease-in-out ${show ? "translate-y-0" : "translate-y-100"}`}
+      className={`fixed right-4 bottom-4 flex h-10 w-10 items-center justify-center rounded-full border-1 border-stone-300 shadow-sm bg-white transition-all duration-500 ease-in-out ${show ? "translate-y-0" : "translate-y-100"}`}
     >
       <ChevronUp
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

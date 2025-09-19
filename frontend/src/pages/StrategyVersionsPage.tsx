@@ -1,5 +1,6 @@
 import BacktestBadge from "@/components/backtest-badge";
 import ScrollTop from "@/components/scroll-top";
+import Spinner from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import useIntersectionObserver from "@/hooks/intersection-observer";
@@ -221,12 +222,10 @@ const StrategiesVersionsPage: FC = () => {
             )}
           </div>
         )}
-        <div ref={listFooterIntersectionObserver.refObj}></div>
+        <div ref={listFooterIntersectionObserver.elementRefObj}></div>
         {infiniteVersionsQuery.isFetching &&
           infiniteVersionsQuery.data?.pages.length && (
-            <div className="mt-4 flex h-8 w-full items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-300 border-t-transparent"></div>
-            </div>
+            <Spinner />
           )}
       </div>
     </DashboardLayout>

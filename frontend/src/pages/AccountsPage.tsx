@@ -1,4 +1,5 @@
 import ScrollTop from "@/components/scroll-top";
+import Spinner from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -393,13 +394,9 @@ const AccountsPage: FC = () => {
             )}
           </TableBody>
         </Table>
-        <div ref={tableFooterIntersectionObserver.refObj}></div>
+        <div ref={tableFooterIntersectionObserver.elementRefObj}></div>
         {infiniteAccountsQuery.isFetching &&
-          infiniteAccountsQuery.data?.pages.length && (
-            <div className="flex h-8 w-full items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-300 border-t-transparent"></div>
-            </div>
-          )}
+          infiniteAccountsQuery.data?.pages.length && <Spinner />}
       </div>
       <Link to={""} />
     </DashboardLayout>

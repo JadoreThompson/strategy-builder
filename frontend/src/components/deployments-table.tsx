@@ -1,7 +1,6 @@
-import {
-  useDeploymentsByVersionQuery,
-  useStopDeploymentMutation,
-} from "@/hooks/deployments-hooks";
+import { useStopDeploymentMutation } from "@/hooks/deployments-hooks";
+import useIntersectionObserver from "@/hooks/intersection-observer";
+import { useInfiniteDeploymentsQuery } from "@/hooks/strategy-version-hooks";
 import type { DeploymentStatus } from "@/openapi";
 import {
   Popover,
@@ -9,8 +8,9 @@ import {
   PopoverTrigger,
 } from "@radix-ui/react-popover";
 import { Ellipsis, OctagonX } from "lucide-react";
-import { type FC, useEffect, useState } from "react";
+import { type FC, Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
+import Spinner from "./spinner";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
@@ -116,12 +116,23 @@ const DeploymentsTable: FC<{ versionId: string; refreshCounter: number }> = ({
     undefined,
   );
 
-  const deploymentsByVersionQuery = useDeploymentsByVersionQuery(versionId);
   const stopDeploymentMutation = useStopDeploymentMutation();
+  const infiniteDeploymentsbyVersionQuery =
+    useInfiniteDeploymentsQuery(versionId);
+  const tableFooterIntersectionObserver =
+    useIntersectionObserver<HTMLDivElement>(() => {
+      const pages = infiniteDeploymentsbyVersionQuery.data?.pages || [];
+      if (!pages.length || pages[pages.length - 1].has_next) {
+        infiniteDeploymentsbyVersionQuery.fetchNextPage();
+      }
+    });
 
   useEffect(() => {
-    deploymentsByVersionQuery.refetch();
+    infiniteDeploymentsbyVersionQuery.refetch();
   }, [refreshCounter]);
+
+  const allDeployments =
+    infiniteDeploymentsbyVersionQuery.data?.pages.flatMap((p) => p.data) || [];
 
   return (
     <>
@@ -131,7 +142,7 @@ const DeploymentsTable: FC<{ versionId: string; refreshCounter: number }> = ({
           onSubmit={() =>
             stopDeploymentMutation
               .mutateAsync({ deploymentId, versionId })
-              .then(() => deploymentsByVersionQuery.refetch())
+              .then(() => infiniteDeploymentsbyVersionQuery.refetch())
               .catch((err) => toast(`Error: ${err.message}`))
               .finally(() => setDeploymentId(undefined))
           }
@@ -149,18 +160,24 @@ const DeploymentsTable: FC<{ versionId: string; refreshCounter: number }> = ({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {deploymentsByVersionQuery.isPending && (
+          {infiniteDeploymentsbyVersionQuery.isPending ? (
             <TableRow>
-              <TableCell colSpan={4} className="h-50">
+              <TableCell colSpan={5} className="h-50">
                 <Skeleton className="h-full w-full bg-gray-100" />
               </TableCell>
             </TableRow>
-          )}
-
-          {deploymentsByVersionQuery.data && (
-            <>
-              {deploymentsByVersionQuery.data.length > 0 ? (
-                deploymentsByVersionQuery.data.map((d) => (
+          ) : infiniteDeploymentsbyVersionQuery.isError ? (
+            <TableRow>
+              <TableCell colSpan={5} className="h-50">
+                <div className="flex h-full w-full items-center justify-center">
+                  <span>{infiniteDeploymentsbyVersionQuery.error.message}</span>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : allDeployments.length > 0 ? (
+            infiniteDeploymentsbyVersionQuery.data.pages.map((page, i) => (
+              <Fragment key={i}>
+                {page.data.map((d) => (
                   <TableRow key={d.deployment_id}>
                     <TableCell className="max-w-[12ch] truncate font-medium">
                       {d.account_id.slice(0, 8)}...
@@ -205,30 +222,22 @@ const DeploymentsTable: FC<{ versionId: string; refreshCounter: number }> = ({
                       </Popover>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-50 !bg-gray-100">
-                    <div className="flex h-full w-full items-center justify-center">
-                      <span>No deployments</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </>
-          )}
-
-          {deploymentsByVersionQuery.error && (
+                ))}
+              </Fragment>
+            ))
+          ) : (
             <TableRow>
-              <TableCell colSpan={4} className="h-50">
+              <TableCell colSpan={5} className="h-50 !bg-gray-100">
                 <div className="flex h-full w-full items-center justify-center">
-                  <span>{deploymentsByVersionQuery.error.message}</span>
+                  <span>No deployments</span>
                 </div>
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
+      <div ref={tableFooterIntersectionObserver.elementRefObj} />
+      {infiniteDeploymentsbyVersionQuery.isFetchingNextPage && <Spinner />}
     </>
   );
 };

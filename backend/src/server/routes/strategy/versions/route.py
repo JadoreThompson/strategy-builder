@@ -17,11 +17,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import PAGE_SIZE
 from core.enums import TaskStatus
-from db_models import Positions, Strategies, StrategyVersions, Backtests
+from db_models import (
+    Accounts,
+    Deployments,
+    Positions,
+    Strategies,
+    StrategyVersions,
+    Backtests,
+)
 from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.exc import JWTError
-from server.models import PaginatedResponse, StrategyVersionResponse, BacktestResult
+from server.models import (
+    DeploymentResponse,
+    PaginatedResponse,
+    StrategyVersionResponse,
+    BacktestResult,
+)
 from server.services import JWTService
 from server.typing import JWTPayload
 from .connection_manager import ConnectionManager
@@ -143,6 +155,43 @@ async def get_backtests(
                 created_at=bt.created_at,
             )
             for bt in rows[:PAGE_SIZE]
+        ],
+    )
+
+
+@route.get("/{version_id}/deployments", response_model=PaginatedResponse[DeploymentResponse])
+async def get_deployments(
+    version_id: UUID,
+    page: int = Query(1, ge=1),
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    q = (
+        select(Deployments, Accounts.name)
+        .join(Accounts)
+        .where(
+            Deployments.version_id == version_id,
+            Accounts.user_id == jwt.sub,
+        )
+    )
+    res = await db_sess.execute(q.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE + 1))
+    deployments = res.all()
+
+    return PaginatedResponse[DeploymentResponse](
+        page=page,
+        size=min(len(deployments), PAGE_SIZE),
+        has_next=len(deployments) > PAGE_SIZE,
+        data=[
+            DeploymentResponse(
+                deployment_id=d.deployment_id,
+                account_id=d.account_id,
+                account_name=acc_name,
+                instrument=d.instrument,
+                version_id=d.version_id,
+                status=d.status,
+                created_at=d.created_at,
+            )
+            for d, acc_name in deployments[:PAGE_SIZE]
         ],
     )
 

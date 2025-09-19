@@ -1,6 +1,7 @@
 import type {
   GetAccountsAccountsGetParams,
   GetStrategiesStrategiesGetParams,
+  GetStrategyVersionsStrategiesStrategyIdVersionsGetParams,
 } from "@/openapi";
 
 export const queryKeys = {
@@ -28,12 +29,15 @@ export const queryKeys = {
     ["strategies", params] as const,
 
   // Strategy Versions
-  strategyVersions: (params: { strategyId: string } & object) =>
-    ["strategies", params.strategyId, "versions", params] as const,
+  strategyVersions: (
+    params: {
+      strategyId: string;
+    } & GetStrategyVersionsStrategiesStrategyIdVersionsGetParams,
+  ) => ["strategies-all-versions", params.strategyId, params] as const,
   strategyVersion: (versionId: string) =>
-    ["strategies", "versions", versionId] as const,
+    ["strategies-versions-direct", versionId] as const,
   strategyVersionBacktests: (versionId: string) =>
-    ["strategies", "versions", versionId, "backtests"] as const,
+    ["strategies-versions-backtests", versionId] as const,
   strategyVersionPositions: (versionId: string) =>
-    ["strategies", "versions", versionId, "positions"] as const,
+    ["strategies-versions-positions", versionId] as const,
 };

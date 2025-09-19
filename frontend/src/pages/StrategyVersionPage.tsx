@@ -6,35 +6,27 @@ import PositionsTable from "@/components/positions-table";
 import ScrollTop from "@/components/scroll-top";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Toaster } from "@/components/ui/sonner";
-import { useAccountsQuery } from "@/hooks/accounts-hooks";
 import { useCreateDeploymentMutation } from "@/hooks/deployments-hooks";
 import {
   useCreateBacktestMutation,
   useDeleteStrategyVersionMutation,
   useInfiniteBacktestsQuery,
+  useInfiniteDeploymentsQuery,
   useStrategyVersionQuery,
 } from "@/hooks/strategy-version-hooks";
 import { DashboardLayout } from "@/layouts/dashboard-layout";
-import type { BacktestCreate } from "@/openapi";
+import { type BacktestCreate } from "@/openapi";
 import {
-  Ellipsis,
-  MessageCircle,
-  NotepadText,
-  Rocket,
-  RotateCw,
-  Trash2,
-} from "lucide-react";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@radix-ui/react-popover";
+import { Ellipsis, NotepadText, RotateCw, Trash2 } from "lucide-react";
 import { useState, type FC } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 const BacktestActions: FC<{
   onRefresh: () => void;
@@ -82,16 +74,7 @@ const CreateDeploymentCardWrapper: FC<{
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
   onClose: () => void | Promise<void>;
 }> = ({ onSubmit, onClose }) => {
-  const accountsQuery = useAccountsQuery();
-
-  return (
-    <CreateDeploymentCard
-      accounts={accountsQuery.data || []}
-      loading={accountsQuery.isPending}
-      onSubmit={onSubmit}
-      onClose={onClose}
-    />
-  );
+  return <CreateDeploymentCard onSubmit={onSubmit} onClose={onClose} />;
 };
 
 const TABS = ["Backtests", "Deployments", "Positions"] as const;
@@ -103,14 +86,12 @@ const StrategyVersionPage: FC = () => {
   const { versionId } = useParams();
   const navigate = useNavigate();
 
-  console.log("Rerendering");
-
   const strategyVersionQuery = useStrategyVersionQuery(versionId!);
   const deleteStrategyVersionMutation = useDeleteStrategyVersionMutation();
   const createBacktestMutation = useCreateBacktestMutation();
   const infiniteBacktestsQuery = useInfiniteBacktestsQuery(versionId!);
   const createDeploymentMutation = useCreateDeploymentMutation();
-  // const infiniteBacktestsQuery = useInfiniteBacktestsQuery(props.versionId);
+  const infiniteDeploymentsQuery = useInfiniteDeploymentsQuery(versionId!);
 
   const [tab, setTab] = useState<Tab>(DEFAULT_TAB);
   const [showPrompt, setShowPrompt] = useState<boolean>(false);
@@ -148,7 +129,6 @@ const StrategyVersionPage: FC = () => {
       .mutateAsync({ versionId: versionId!, data: body })
       .then(() => {
         toast("Backtest initiated");
-        // backtestsQuery.refetch();
         infiniteBacktestsQuery.refetch();
       })
       .catch((err) => toast(`Error: ${err.message}`));
@@ -176,7 +156,10 @@ const StrategyVersionPage: FC = () => {
         version_id: versionId!,
         instrument,
       })
-      .then(() => toast("Deployment initiated successfully."))
+      .then(() => {
+        infiniteDeploymentsQuery.refetch();
+        toast("Deployment initiated successfully.");
+      })
       .catch((err) => toast(`Error: ${err.message}`));
 
     setShowCreateDeploymentCard(false);
@@ -253,20 +236,10 @@ const StrategyVersionPage: FC = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="z-50 flex w-30 flex-col gap-1 p-1"
+                    className="flex w-30 flex-col gap-1 border-1 border-stone-100 bg-white p-1 shadow-sm"
                     side="bottom"
                     align="end"
-                    forceMount
                   >
-                    <Button
-                      variant="secondary"
-                      className="flex h-7 w-full cursor-pointer flex-row items-center justify-start gap-1 bg-transparent p-0 shadow-none hover:bg-stone-100"
-                    >
-                      <Rocket className="h-3 w-3" />
-                      <span className="!bg-transparent p-0 text-xs">
-                        Deploy
-                      </span>
-                    </Button>
                     <Button
                       variant="secondary"
                       onClick={() => setShowPrompt(true)}
@@ -279,15 +252,8 @@ const StrategyVersionPage: FC = () => {
                     </Button>
                     <Button
                       variant="secondary"
-                      className="flex h-7 w-full cursor-pointer flex-row items-center justify-start gap-1 bg-transparent p-2 shadow-none hover:bg-stone-100"
-                    >
-                      <MessageCircle className="h-3 w-3" />
-                      <span className="!bg-transparent p-0 text-xs">Chat</span>
-                    </Button>
-                    <Button
-                      variant="secondary"
                       onClick={() => deleteVersion()}
-                      className="flex h-7 w-full cursor-pointer flex-row items-center justify-start gap-1 p-2 shadow-none hover:bg-red-100"
+                      className="flex h-7 w-full cursor-pointer flex-row items-center justify-start gap-1 bg-transparent p-2 shadow-none hover:bg-red-100"
                     >
                       <Trash2 className="h-3 w-3 text-red-500" />
                       <span className="!bg-transparent p-0 text-xs text-red-500">

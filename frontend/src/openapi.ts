@@ -153,6 +153,13 @@ export interface PaginatedResponseBacktestResult {
   data: BacktestResult[];
 }
 
+export interface PaginatedResponseDeploymentResponse {
+  page: number;
+  size: number;
+  has_next: boolean;
+  data: DeploymentResponse[];
+}
+
 export interface PaginatedResponsePositionResponse {
   page: number;
   size: number;
@@ -312,6 +319,13 @@ export type GetStrategyVersionsStrategiesStrategyIdVersionsGetParams = {
 };
 
 export type GetBacktestsStrategiesVersionsVersionIdBacktestsGetParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type GetDeploymentsStrategiesVersionIdDeploymentsGetParams = {
   /**
    * @minimum 1
    */
@@ -823,50 +837,6 @@ export const getDeploymentDeploymentsDeploymentIdGet = async (
 };
 
 /**
- * @summary Get Deployments For Version
- */
-export type getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponse200 =
-  {
-    data: DeploymentResponse[];
-    status: 200;
-  };
-
-export type getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponse422 =
-  {
-    data: HTTPValidationError;
-    status: 422;
-  };
-
-export type getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponseComposite =
-
-    | getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponse200
-    | getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponse422;
-
-export type getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponse =
-  getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponseComposite & {
-    headers: Headers;
-  };
-
-export const getGetDeploymentsForVersionDeploymentsByVersionVersionIdGetUrl = (
-  versionId: string,
-) => {
-  return `/deployments/by-version/${versionId}`;
-};
-
-export const getDeploymentsForVersionDeploymentsByVersionVersionIdGet = async (
-  versionId: string,
-  options?: RequestInit,
-): Promise<getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponse> => {
-  return customFetch<getDeploymentsForVersionDeploymentsByVersionVersionIdGetResponse>(
-    getGetDeploymentsForVersionDeploymentsByVersionVersionIdGetUrl(versionId),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
-};
-
-/**
  * @summary Stop Deployment
  */
 export type stopDeploymentDeploymentsDeploymentIdStopPostResponse200 = {
@@ -1280,6 +1250,61 @@ export const getBacktestsStrategiesVersionsVersionIdBacktestsGet = async (
       versionId,
       params,
     ),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+/**
+ * @summary Get Deployments
+ */
+export type getDeploymentsStrategiesVersionIdDeploymentsGetResponse200 = {
+  data: PaginatedResponseDeploymentResponse;
+  status: 200;
+};
+
+export type getDeploymentsStrategiesVersionIdDeploymentsGetResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type getDeploymentsStrategiesVersionIdDeploymentsGetResponseComposite =
+  | getDeploymentsStrategiesVersionIdDeploymentsGetResponse200
+  | getDeploymentsStrategiesVersionIdDeploymentsGetResponse422;
+
+export type getDeploymentsStrategiesVersionIdDeploymentsGetResponse =
+  getDeploymentsStrategiesVersionIdDeploymentsGetResponseComposite & {
+    headers: Headers;
+  };
+
+export const getGetDeploymentsStrategiesVersionIdDeploymentsGetUrl = (
+  versionId: string,
+  params?: GetDeploymentsStrategiesVersionIdDeploymentsGetParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/strategies/${versionId}/deployments?${stringifiedParams}`
+    : `/strategies/${versionId}/deployments`;
+};
+
+export const getDeploymentsStrategiesVersionIdDeploymentsGet = async (
+  versionId: string,
+  params?: GetDeploymentsStrategiesVersionIdDeploymentsGetParams,
+  options?: RequestInit,
+): Promise<getDeploymentsStrategiesVersionIdDeploymentsGetResponse> => {
+  return customFetch<getDeploymentsStrategiesVersionIdDeploymentsGetResponse>(
+    getGetDeploymentsStrategiesVersionIdDeploymentsGetUrl(versionId, params),
     {
       ...options,
       method: "GET",

@@ -47,3 +47,13 @@ class BacktestResult(CustomBaseModel):
     def round_values(cls, v):
         if v is not None:
             return round(v, 2)
+
+
+class DeploymentResponse(CustomBaseModel):
+    deployment_id: UUID
+    account_id: UUID
+    account_name: str
+    instrument: str
+    version_id: UUID
+    status: DeploymentStatus
+    created_at: datetime

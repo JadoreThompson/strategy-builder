@@ -3,24 +3,10 @@ import { handleApi } from "@/lib/utils/base";
 import {
   createDeploymentDeploymentsPost,
   getDeploymentDeploymentsDeploymentIdGet,
-  getDeploymentsForVersionDeploymentsByVersionVersionIdGet,
   stopDeploymentDeploymentsDeploymentIdStopPost,
   type DeploymentCreate,
 } from "@/openapi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-export function useDeploymentsByVersionQuery(versionId: string) {
-  return useQuery({
-    queryKey: queryKeys.deploymentsByVersion(versionId),
-    queryFn: async () =>
-      handleApi(
-        await getDeploymentsForVersionDeploymentsByVersionVersionIdGet(
-          versionId,
-        ),
-      ),
-    enabled: !!versionId,
-  });
-}
 
 export function useDeploymentQuery(deploymentId: string) {
   return useQuery({
