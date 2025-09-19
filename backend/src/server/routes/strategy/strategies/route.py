@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, Query
 from sqlalchemy import insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,10 +111,14 @@ async def get_strategies(
     )
 
 
-@route.get("/{strategy_id}/versions", response_model=list[StrategyVersionsResponse])
+@route.get(
+    "/{strategy_id}/versions",
+    response_model=PaginatedResponse[StrategyVersionsResponse],
+)
 async def get_strategy_versions(
     strategy_id: UUID,
     name: str | None = None,
+    page: int = Query(1, ge=1),
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
@@ -165,7 +169,8 @@ async def get_strategy_versions(
     if name:
         q = q.where(StrategyVersions.name == name)
 
-    res = await db_sess.execute(q)
+    # NOTE: MV may be better for pagination
+    res = await db_sess.execute(q.offset((page - 1) * 10).limit(PAGE_SIZE + 1))
     rows = res.all()
 
     out = []
@@ -206,7 +211,12 @@ async def get_strategy_versions(
 
         out.append(sv)
 
-    return out
+    return PaginatedResponse[StrategyVersionsResponse](
+        page=page,
+        size=min(PAGE_SIZE, len(out)),
+        has_next=len(out) > PAGE_SIZE,
+        data=out[:PAGE_SIZE],
+    )
 
 
 @route.delete("/{strategy_id}")
