@@ -139,46 +139,81 @@ export interface HTTPValidationError {
   detail?: ValidationError[];
 }
 
-export type PositionCurrentAmount = number | null;
+export interface PaginatedResponseAccountDetailResponse {
+  page: number;
+  size: number;
+  has_next: boolean;
+  data: AccountDetailResponse[];
+}
 
-export type PositionPrice = number | null;
+export interface PaginatedResponseBacktestResult {
+  page: number;
+  size: number;
+  has_next: boolean;
+  data: BacktestResult[];
+}
 
-export type PositionLimitPrice = number | null;
+export interface PaginatedResponsePositionResponse {
+  page: number;
+  size: number;
+  has_next: boolean;
+  data: PositionResponse[];
+}
 
-export type PositionStopPrice = number | null;
+export interface PaginatedResponseStrategiesResponse {
+  page: number;
+  size: number;
+  has_next: boolean;
+  data: StrategiesResponse[];
+}
 
-export type PositionTpPrice = number | null;
+export interface PaginatedResponseStrategyVersionsResponse {
+  page: number;
+  size: number;
+  has_next: boolean;
+  data: StrategyVersionsResponse[];
+}
 
-export type PositionSlPrice = number | null;
+export type PositionResponseCurrentAmount = number | null;
 
-export type PositionRealisedPnl = number | null;
+export type PositionResponsePrice = number | null;
 
-export type PositionUnrealisedPnl = number | null;
+export type PositionResponseLimitPrice = number | null;
 
-export type PositionCreatedAt = string | null;
+export type PositionResponseStopPrice = number | null;
 
-export type PositionClosePrice = number | null;
+export type PositionResponseTpPrice = number | null;
 
-export type PositionClosedAt = string | null;
+export type PositionResponseSlPrice = number | null;
 
-export interface Position {
+export type PositionResponseRealisedPnl = number | null;
+
+export type PositionResponseUnrealisedPnl = number | null;
+
+export type PositionResponseCreatedAt = string | null;
+
+export type PositionResponseClosePrice = number | null;
+
+export type PositionResponseClosedAt = string | null;
+
+export interface PositionResponse {
   position_id: string;
   instrument: string;
   side: string;
   order_type: string;
   starting_amount: number;
-  current_amount: PositionCurrentAmount;
-  price: PositionPrice;
-  limit_price: PositionLimitPrice;
-  stop_price: PositionStopPrice;
-  tp_price: PositionTpPrice;
-  sl_price: PositionSlPrice;
-  realised_pnl: PositionRealisedPnl;
-  unrealised_pnl: PositionUnrealisedPnl;
+  current_amount: PositionResponseCurrentAmount;
+  price: PositionResponsePrice;
+  limit_price: PositionResponseLimitPrice;
+  stop_price: PositionResponseStopPrice;
+  tp_price: PositionResponseTpPrice;
+  sl_price: PositionResponseSlPrice;
+  realised_pnl: PositionResponseRealisedPnl;
+  unrealised_pnl: PositionResponseUnrealisedPnl;
   status: string;
-  created_at: PositionCreatedAt;
-  close_price: PositionClosePrice;
-  closed_at: PositionClosedAt;
+  created_at: PositionResponseCreatedAt;
+  close_price: PositionResponseClosePrice;
+  closed_at: PositionResponseClosedAt;
 }
 
 export interface StrategiesResponse {
@@ -260,14 +295,34 @@ export interface ValidationError {
 
 export type GetAccountsAccountsGetParams = {
   name?: string | null;
+  page?: number;
 };
 
 export type GetStrategiesStrategiesGetParams = {
   name?: string | null;
+  page?: number;
 };
 
 export type GetStrategyVersionsStrategiesStrategyIdVersionsGetParams = {
   name?: string | null;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type GetBacktestsStrategiesVersionsVersionIdBacktestsGetParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
+};
+
+export type GetPositionsStrategiesVersionsVersionIdPositionsGetParams = {
+  /**
+   * @minimum 1
+   */
+  page?: number;
 };
 
 /**
@@ -315,7 +370,7 @@ export const createAccountAccountsPost = async (
  * @summary Get Accounts
  */
 export type getAccountsAccountsGetResponse200 = {
-  data: AccountDetailResponse[];
+  data: PaginatedResponseAccountDetailResponse;
   status: 200;
 };
 
@@ -897,7 +952,7 @@ export const createStrategyVersionStrategiesPost = async (
  * @summary Get Strategies
  */
 export type getStrategiesStrategiesGetResponse200 = {
-  data: StrategiesResponse[];
+  data: PaginatedResponseStrategiesResponse;
   status: 200;
 };
 
@@ -947,51 +1002,10 @@ export const getStrategiesStrategiesGet = async (
 };
 
 /**
- * @summary Delete Strategy
- */
-export type deleteStrategyStrategiesStrategyIdDeleteResponse200 = {
-  data: unknown;
-  status: 200;
-};
-
-export type deleteStrategyStrategiesStrategyIdDeleteResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type deleteStrategyStrategiesStrategyIdDeleteResponseComposite =
-  | deleteStrategyStrategiesStrategyIdDeleteResponse200
-  | deleteStrategyStrategiesStrategyIdDeleteResponse422;
-
-export type deleteStrategyStrategiesStrategyIdDeleteResponse =
-  deleteStrategyStrategiesStrategyIdDeleteResponseComposite & {
-    headers: Headers;
-  };
-
-export const getDeleteStrategyStrategiesStrategyIdDeleteUrl = (
-  strategyId: string,
-) => {
-  return `/strategies/${strategyId}`;
-};
-
-export const deleteStrategyStrategiesStrategyIdDelete = async (
-  strategyId: string,
-  options?: RequestInit,
-): Promise<deleteStrategyStrategiesStrategyIdDeleteResponse> => {
-  return customFetch<deleteStrategyStrategiesStrategyIdDeleteResponse>(
-    getDeleteStrategyStrategiesStrategyIdDeleteUrl(strategyId),
-    {
-      ...options,
-      method: "DELETE",
-    },
-  );
-};
-
-/**
  * @summary Get Strategy Versions
  */
 export type getStrategyVersionsStrategiesStrategyIdVersionsGetResponse200 = {
-  data: StrategyVersionsResponse[];
+  data: PaginatedResponseStrategyVersionsResponse;
   status: 200;
 };
 
@@ -1042,6 +1056,47 @@ export const getStrategyVersionsStrategiesStrategyIdVersionsGet = async (
     {
       ...options,
       method: "GET",
+    },
+  );
+};
+
+/**
+ * @summary Delete Strategy
+ */
+export type deleteStrategyStrategiesStrategyIdDeleteResponse200 = {
+  data: unknown;
+  status: 200;
+};
+
+export type deleteStrategyStrategiesStrategyIdDeleteResponse422 = {
+  data: HTTPValidationError;
+  status: 422;
+};
+
+export type deleteStrategyStrategiesStrategyIdDeleteResponseComposite =
+  | deleteStrategyStrategiesStrategyIdDeleteResponse200
+  | deleteStrategyStrategiesStrategyIdDeleteResponse422;
+
+export type deleteStrategyStrategiesStrategyIdDeleteResponse =
+  deleteStrategyStrategiesStrategyIdDeleteResponseComposite & {
+    headers: Headers;
+  };
+
+export const getDeleteStrategyStrategiesStrategyIdDeleteUrl = (
+  strategyId: string,
+) => {
+  return `/strategies/${strategyId}`;
+};
+
+export const deleteStrategyStrategiesStrategyIdDelete = async (
+  strategyId: string,
+  options?: RequestInit,
+): Promise<deleteStrategyStrategiesStrategyIdDeleteResponse> => {
+  return customFetch<deleteStrategyStrategiesStrategyIdDeleteResponse>(
+    getDeleteStrategyStrategiesStrategyIdDeleteUrl(strategyId),
+    {
+      ...options,
+      method: "DELETE",
     },
   );
 };
@@ -1177,7 +1232,7 @@ export const deleteVersionStrategiesVersionsVersionIdDelete = async (
  * @summary Get Backtests
  */
 export type getBacktestsStrategiesVersionsVersionIdBacktestsGetResponse200 = {
-  data: BacktestResult[];
+  data: PaginatedResponseBacktestResult;
   status: 200;
 };
 
@@ -1198,16 +1253,33 @@ export type getBacktestsStrategiesVersionsVersionIdBacktestsGetResponse =
 
 export const getGetBacktestsStrategiesVersionsVersionIdBacktestsGetUrl = (
   versionId: string,
+  params?: GetBacktestsStrategiesVersionsVersionIdBacktestsGetParams,
 ) => {
-  return `/strategies/versions/${versionId}/backtests`;
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/strategies/versions/${versionId}/backtests?${stringifiedParams}`
+    : `/strategies/versions/${versionId}/backtests`;
 };
 
 export const getBacktestsStrategiesVersionsVersionIdBacktestsGet = async (
   versionId: string,
+  params?: GetBacktestsStrategiesVersionsVersionIdBacktestsGetParams,
   options?: RequestInit,
 ): Promise<getBacktestsStrategiesVersionsVersionIdBacktestsGetResponse> => {
   return customFetch<getBacktestsStrategiesVersionsVersionIdBacktestsGetResponse>(
-    getGetBacktestsStrategiesVersionsVersionIdBacktestsGetUrl(versionId),
+    getGetBacktestsStrategiesVersionsVersionIdBacktestsGetUrl(
+      versionId,
+      params,
+    ),
     {
       ...options,
       method: "GET",
@@ -1219,7 +1291,7 @@ export const getBacktestsStrategiesVersionsVersionIdBacktestsGet = async (
  * @summary Get Positions
  */
 export type getPositionsStrategiesVersionsVersionIdPositionsGetResponse200 = {
-  data: Position[];
+  data: PaginatedResponsePositionResponse;
   status: 200;
 };
 
@@ -1240,16 +1312,33 @@ export type getPositionsStrategiesVersionsVersionIdPositionsGetResponse =
 
 export const getGetPositionsStrategiesVersionsVersionIdPositionsGetUrl = (
   versionId: string,
+  params?: GetPositionsStrategiesVersionsVersionIdPositionsGetParams,
 ) => {
-  return `/strategies/versions/${versionId}/positions`;
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/strategies/versions/${versionId}/positions?${stringifiedParams}`
+    : `/strategies/versions/${versionId}/positions`;
 };
 
 export const getPositionsStrategiesVersionsVersionIdPositionsGet = async (
   versionId: string,
+  params?: GetPositionsStrategiesVersionsVersionIdPositionsGetParams,
   options?: RequestInit,
 ): Promise<getPositionsStrategiesVersionsVersionIdPositionsGetResponse> => {
   return customFetch<getPositionsStrategiesVersionsVersionIdPositionsGetResponse>(
-    getGetPositionsStrategiesVersionsVersionIdPositionsGetUrl(versionId),
+    getGetPositionsStrategiesVersionsVersionIdPositionsGetUrl(
+      versionId,
+      params,
+    ),
     {
       ...options,
       method: "GET",

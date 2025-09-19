@@ -3,6 +3,7 @@ import CreateBacktestCard from "@/components/create-backtest-card";
 import CreateDeploymentCard from "@/components/create-deployment-card";
 import DeploymentsTable from "@/components/deployments-table";
 import PositionsTable from "@/components/positions-table";
+import ScrollTop from "@/components/scroll-top";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -15,9 +16,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAccountsQuery } from "@/hooks/accounts-hooks";
 import { useCreateDeploymentMutation } from "@/hooks/deployments-hooks";
 import {
-  useBacktestsQuery,
   useCreateBacktestMutation,
   useDeleteStrategyVersionMutation,
+  useInfiniteBacktestsQuery,
   useStrategyVersionQuery,
 } from "@/hooks/strategy-version-hooks";
 import { DashboardLayout } from "@/layouts/dashboard-layout";
@@ -102,11 +103,14 @@ const StrategyVersionPage: FC = () => {
   const { versionId } = useParams();
   const navigate = useNavigate();
 
+  console.log("Rerendering");
+
   const strategyVersionQuery = useStrategyVersionQuery(versionId!);
-  const createBacktestMutation = useCreateBacktestMutation();
-  const createDeploymentMutation = useCreateDeploymentMutation();
   const deleteStrategyVersionMutation = useDeleteStrategyVersionMutation();
-  const backtestsQuery = useBacktestsQuery(versionId!);
+  const createBacktestMutation = useCreateBacktestMutation();
+  const infiniteBacktestsQuery = useInfiniteBacktestsQuery(versionId!);
+  const createDeploymentMutation = useCreateDeploymentMutation();
+  // const infiniteBacktestsQuery = useInfiniteBacktestsQuery(props.versionId);
 
   const [tab, setTab] = useState<Tab>(DEFAULT_TAB);
   const [showPrompt, setShowPrompt] = useState<boolean>(false);
@@ -144,7 +148,8 @@ const StrategyVersionPage: FC = () => {
       .mutateAsync({ versionId: versionId!, data: body })
       .then(() => {
         toast("Backtest initiated");
-        backtestsQuery.refetch();
+        // backtestsQuery.refetch();
+        infiniteBacktestsQuery.refetch();
       })
       .catch((err) => toast(`Error: ${err.message}`));
 
@@ -179,6 +184,7 @@ const StrategyVersionPage: FC = () => {
 
   return (
     <DashboardLayout className="mt-7">
+      <ScrollTop />
       <Toaster />
 
       {showCreateBacktestCard &&

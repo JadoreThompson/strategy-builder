@@ -10,12 +10,39 @@ import {
   type AccountUpdate,
   type GetAccountsAccountsGetParams,
 } from "@/openapi";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 export function useAccountsQuery(params?: GetAccountsAccountsGetParams) {
   return useQuery({
     queryKey: queryKeys.accounts(params),
     queryFn: async () => handleApi(await getAccountsAccountsGet(params)),
+  });
+}
+
+export function useInfiniteAccountsQuery(
+  params?: GetAccountsAccountsGetParams,
+) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.accounts(),
+    queryFn: async ({ pageParam = 1 }) =>
+      handleApi(
+        await getAccountsAccountsGet({
+          ...params,
+          page: pageParam,
+        }),
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.has_next) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
   });
 }
 

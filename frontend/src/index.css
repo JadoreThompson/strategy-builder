@@ -138,3 +138,32 @@
   66%  { content: "..."; }
   100% { content: ""; }
 }
+
+
+@keyframes showScroll {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0%);
+    visibility: visible;
+  }
+}
+
+@keyframes showScroll {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0%);
+    visibility: visible;
+  }
+}
+
+.smooth-rise {
+  animation: showScroll 1s;
+}
+
+.smooth-fall {
+  animation: showScroll reverse 1s;
+}

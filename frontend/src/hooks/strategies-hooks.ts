@@ -7,12 +7,37 @@ import {
   type GetStrategiesStrategiesGetParams,
   type StrategyCreate,
 } from "@/openapi";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 export function useStrategiesQuery(params?: GetStrategiesStrategiesGetParams) {
   return useQuery({
     queryKey: queryKeys.strategies(params),
     queryFn: async () => handleApi(await getStrategiesStrategiesGet(params)),
+  });
+}
+
+export function useInfiniteStrategiesQuery(
+  params?: GetStrategiesStrategiesGetParams,
+) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.strategies(params),
+    queryFn: async ({ pageParam = 1 }) =>
+      handleApi(
+        await getStrategiesStrategiesGet({ ...params, page: pageParam }),
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      console.log("Hi there strats");
+      if (lastPage.has_next) {
+        return lastPage.page;
+      }
+      return undefined;
+    },
   });
 }
 

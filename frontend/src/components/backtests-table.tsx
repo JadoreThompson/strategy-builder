@@ -1,5 +1,6 @@
-import { useBacktestsQuery } from "@/hooks/strategy-version-hooks";
-import { useEffect, type FC } from "react";
+import useIntersectionObserver from "@/hooks/intersection-observer";
+import { useInfiniteBacktestsQuery } from "@/hooks/strategy-version-hooks";
+import React, { useEffect, type FC } from "react";
 import BacktestBadge from "./backtest-badge";
 import { Skeleton } from "./ui/skeleton";
 import {
@@ -14,13 +15,34 @@ import {
 const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
   props,
 ) => {
-  const backtestsQuery = useBacktestsQuery(props.versionId);
+  // console.log(props.versionId)
+  const infiniteBacktestsQuery = useInfiniteBacktestsQuery(props.versionId);
+
+  const tableFooterIntersectionObserver =
+    useIntersectionObserver<HTMLDivElement>(() => {
+      const pages = infiniteBacktestsQuery.data?.pages || [];
+      if (!pages.length || pages[pages.length - 1].has_next) {
+        infiniteBacktestsQuery.fetchNextPage();
+      }
+    });
+
   useEffect(() => {
-    backtestsQuery.refetch();
-  }, [props.refreshCounter]);
+    infiniteBacktestsQuery.refetch();
+  }, [props.refreshCounter, infiniteBacktestsQuery]);
+
+  // const noBacktestsFound =
+  //   infiniteBacktestsQuery.data &&
+  //   (!infiniteBacktestsQuery.data.pages.length ||
+  //     !infiniteBacktestsQuery.data.pages[0].data.length);
+
+    console.log("hi")
+  const backtestsFound =
+    infiniteBacktestsQuery.data &&
+    infiniteBacktestsQuery.data.pages.length &&
+    infiniteBacktestsQuery.data.pages[0].size;
 
   return (
-    <>
+    <div>
       <Table className="h-full w-full">
         <TableHeader>
           <TableRow>
@@ -35,7 +57,7 @@ const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
         </TableHeader>
 
         <TableBody>
-          {backtestsQuery.isPending && (
+          {infiniteBacktestsQuery.isPending && (
             <TableRow>
               <TableCell colSpan={7} className="h-50">
                 <Skeleton className="h-full w-full bg-gray-100" />
@@ -43,55 +65,54 @@ const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
             </TableRow>
           )}
 
-          {backtestsQuery.data && (
-            <>
-              {backtestsQuery.data.length > 0 ? (
-                <>
-                  {backtestsQuery.data.map((b, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>
-                        <BacktestBadge
-                          status={b.status}
-                          className="p-1 text-xs"
-                        />
-                      </TableCell>
-                      <TableCell>{b.total_pnl?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell>
-                        {b.starting_balance?.toFixed(2) ?? "-"}
-                      </TableCell>
-                      <TableCell>{b.end_balance?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell>{b.total_trades ?? "-"}</TableCell>
-                      <TableCell>{b.win_rate?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell className="text-right">
-                        {new Date(b.created_at).toLocaleString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </>
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-50 !bg-gray-100">
-                    <div className="flex h-full w-full items-center justify-center">
-                      <span>No backtests</span>
-                    </div>
+          {infiniteBacktestsQuery.data?.pages.map((page, pageIdx) => (
+            <React.Fragment key={pageIdx}>
+              {page.data.map((b) => (
+                <TableRow key={b.backtest_id}>
+                  <TableCell>
+                    <BacktestBadge status={b.status} className="p-1 text-xs" />
+                  </TableCell>
+                  <TableCell>{b.total_pnl?.toFixed(2) ?? "-"}</TableCell>
+                  <TableCell>{b.starting_balance?.toFixed(2) ?? "-"}</TableCell>
+                  <TableCell>{b.end_balance?.toFixed(2) ?? "-"}</TableCell>
+                  <TableCell>{b.total_trades ?? "-"}</TableCell>
+                  <TableCell>{b.win_rate?.toFixed(2) ?? "-"}</TableCell>
+                  <TableCell className="text-right">
+                    {new Date(b.created_at).toLocaleString()}
                   </TableCell>
                 </TableRow>
-              )}
-            </>
+              ))}
+            </React.Fragment>
+          ))}
+
+          {!infiniteBacktestsQuery.isPending && !backtestsFound && (
+            <TableRow>
+              <TableCell colSpan={7} className="h-50 !bg-gray-100">
+                <div className="flex h-full w-full items-center justify-center">
+                  <span>No backtests have been run for this version.</span>
+                </div>
+              </TableCell>
+            </TableRow>
           )}
 
-          {backtestsQuery.error && (
+          {infiniteBacktestsQuery.error && (
             <TableRow>
               <TableCell colSpan={7} className="h-50">
                 <div className="flex h-full w-full items-center justify-center">
-                  <span>{backtestsQuery.error.message}</span>
+                  <span>{infiniteBacktestsQuery.error.message}</span>
                 </div>
               </TableCell>
             </TableRow>
           )}
         </TableBody>
       </Table>
-    </>
+      <div ref={tableFooterIntersectionObserver.refObj} />
+      {infiniteBacktestsQuery.isFetchingNextPage && (
+        <div className="mt-4 flex h-8 w-full items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-300 border-t-transparent"></div>
+        </div>
+      )}
+    </div>
   );
 };
 

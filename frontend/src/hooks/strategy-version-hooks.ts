@@ -10,7 +10,12 @@ import {
   type BacktestCreate,
   type GetStrategyVersionsStrategiesStrategyIdVersionsGetParams,
 } from "@/openapi";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 export function useStrategyVersionsQuery(
   params: {
@@ -27,6 +32,31 @@ export function useStrategyVersionsQuery(
         ),
       ),
     enabled: !!params.strategyId,
+  });
+}
+
+export function useInfiniteStrategyVersionsQuery(
+  params: {
+    strategyId: string;
+  } & GetStrategyVersionsStrategiesStrategyIdVersionsGetParams,
+) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.strategyVersions(params),
+    queryFn: async ({ pageParam = 1 }) =>
+      handleApi(
+        await getStrategyVersionsStrategiesStrategyIdVersionsGet(
+          params.strategyId,
+          { ...params, page: pageParam },
+        ),
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      console.log("Hi there versions");
+      if (lastPage.has_next) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
   });
 }
 
@@ -87,6 +117,26 @@ export function useBacktestsQuery(versionId: string) {
         await getBacktestsStrategiesVersionsVersionIdBacktestsGet(versionId),
       ),
     enabled: !!versionId,
+  });
+}
+
+export function useInfiniteBacktestsQuery(versionId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.strategyVersionBacktests(versionId),
+    queryFn: async ({ pageParam = 1 }) =>
+      handleApi(
+        await getBacktestsStrategiesVersionsVersionIdBacktestsGet(versionId, {
+          page: pageParam,
+        }),
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, pages) => {
+      console.log("Hi there backtests");
+      if (lastPage.has_next) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
   });
 }
 

@@ -1,4 +1,4 @@
-import type { TaskStatus } from "@/lib/types/taskStatus";
+import type { TaskStatus } from "@/openapi";
 import type { FC } from "react";
 
 const BacktestBadge: FC<{ status: TaskStatus; className: string }> = ({

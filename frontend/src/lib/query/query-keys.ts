@@ -1,6 +1,12 @@
+import type {
+  GetAccountsAccountsGetParams,
+  GetStrategiesStrategiesGetParams,
+} from "@/openapi";
+
 export const queryKeys = {
   // Accounts
-  accounts: (params?: object) => ["accounts", params] as const,
+  accounts: (params?: GetAccountsAccountsGetParams) =>
+    ["accounts", params] as const,
   account: (accountId: string) => ["accounts", accountId] as const,
 
   // Auth
@@ -18,7 +24,8 @@ export const queryKeys = {
     ["deployments", "by-version", versionId] as const,
 
   // Strategies
-  strategies: (params?: object) => ["strategies", params] as const,
+  strategies: (params?: GetStrategiesStrategiesGetParams) =>
+    ["strategies", params] as const,
 
   // Strategy Versions
   strategyVersions: (params: { strategyId: string } & object) =>

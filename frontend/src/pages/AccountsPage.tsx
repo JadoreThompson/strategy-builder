@@ -1,11 +1,7 @@
+import ScrollTop from "@/components/scroll-top";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -15,21 +11,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  useAccountsQuery,
   useCreateAccountMutation,
   useDeleteAccountMutation,
+  useInfiniteAccountsQuery,
   useUpdateAccountMutation,
 } from "@/hooks/accounts-hooks";
+import useIntersectionObserver from "@/hooks/intersection-observer";
 import { DashboardLayout } from "@/layouts/dashboard-layout";
+import { queryClient } from "@/lib/query/query-client";
 
 import type {
   AccountCreate,
   AccountDetailResponse,
   AccountUpdate,
 } from "@/openapi";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@radix-ui/react-popover";
 import dayjs from "dayjs";
 import { Ellipsis, Pencil, Search, Trash2 } from "lucide-react";
-import { useState, type FC } from "react";
+import { useEffect, useState, type FC } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
@@ -212,27 +215,40 @@ const DeleteConfirmationModal: FC<{
 
 const AccountsPage: FC = () => {
   const [searchText, setSearchText] = useState<string>("");
-
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [isDeleting, setIsDeleting] = useState<boolean | null>(false);
-
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [curAccount, setCurAccount] = useState<
     AccountDetailResponse | undefined
   >(undefined);
 
-  const accountsQuery = useAccountsQuery({ name: searchText });
+  const infiniteAccountsQuery = useInfiniteAccountsQuery({
+    name: searchText,
+  });
+  const tableFooterIntersectionObserver =
+    useIntersectionObserver<HTMLDivElement>(() => {
+      const pages = infiniteAccountsQuery.data?.pages || [];
+      if (!pages.length || pages[pages.length - 1].has_next) {
+        infiniteAccountsQuery.fetchNextPage();
+      }
+    });
+
+  useEffect(() => {
+    queryClient.clear();
+  }, [searchText]);
 
   const handleSuccess = () => {
     setIsCreating(false);
     setIsEditing(false);
     setIsDeleting(false);
     setCurAccount(undefined);
-    accountsQuery.refetch();
+    infiniteAccountsQuery.refetch();
   };
 
   return (
     <DashboardLayout>
+      <ScrollTop />
+
       {isCreating &&
         createPortal(
           <AccountFormModal
@@ -255,6 +271,7 @@ const AccountsPage: FC = () => {
           />,
           document.body,
         )}
+
       {isDeleting &&
         curAccount &&
         createPortal(
@@ -288,7 +305,7 @@ const AccountsPage: FC = () => {
         </div>
       </div>
       <div className="border-gray-300">
-        <Table className="border-1 border-gray-300">
+        <Table className="mb-3 border-1 border-gray-300">
           <TableHeader>
             <TableRow>
               <TableHead className="w-30">ID</TableHead>
@@ -299,64 +316,66 @@ const AccountsPage: FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {accountsQuery.data ? (
-              accountsQuery.data.map((acc, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="cursor-pointer">
-                    {`${acc.account_id.slice(0, 8)}...`}
-                  </TableCell>
-                  <TableCell className="cursor-pointer">{acc.name}</TableCell>
-                  <TableCell className="cursor-pointer">
-                    {acc.platform}
-                  </TableCell>
-                  <TableCell className="cursor-pointer">
-                    {dayjs(acc.created_at).format("YYYY-MM")}
-                  </TableCell>
-                  <TableCell
-                    className="text-right"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="h-8 w-8 cursor-pointer p-0"
-                        >
-                          <span className="sr-only">Open menu</span>
-                          <Ellipsis className="h-4 w-4" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent align="end" className="w-30 p-1">
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            (setCurAccount(acc), setIsEditing(true));
-                          }}
-                          className="w-full cursor-pointer justify-start text-xs font-normal"
-                        >
-                          <Pencil className="mr-1 h-3 w-3" />
-                          Update
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            (setCurAccount(acc), setIsDeleting(true));
-                          }}
-                          className="w-full cursor-pointer justify-start text-xs font-normal text-red-600 hover:bg-red-100 hover:text-red-600"
-                        >
-                          <Trash2 className="mr-1 h-3 w-3" />
-                          Delete
-                        </Button>
-                      </PopoverContent>
-                    </Popover>
-                  </TableCell>
-                </TableRow>
-              ))
+            {infiniteAccountsQuery.data?.pages ? (
+              infiniteAccountsQuery.data.pages.map((pagi) =>
+                pagi.data.map((acc, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="cursor-pointer">
+                      {`${acc.account_id.slice(0, 8)}...`}
+                    </TableCell>
+                    <TableCell className="cursor-pointer">{acc.name}</TableCell>
+                    <TableCell className="cursor-pointer">
+                      {acc.platform}
+                    </TableCell>
+                    <TableCell className="cursor-pointer">
+                      {dayjs(acc.created_at).format("YYYY-MM")}
+                    </TableCell>
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-8 w-8 cursor-pointer p-0"
+                          >
+                            <span className="sr-only">Open menu</span>
+                            <Ellipsis className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-30 p-1">
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              (setCurAccount(acc), setIsEditing(true));
+                            }}
+                            className="w-full cursor-pointer justify-start text-xs font-normal"
+                          >
+                            <Pencil className="mr-1 h-3 w-3" />
+                            Update
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              (setCurAccount(acc), setIsDeleting(true));
+                            }}
+                            className="w-full cursor-pointer justify-start text-xs font-normal text-red-600 hover:bg-red-100 hover:text-red-600"
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Delete
+                          </Button>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                  </TableRow>
+                )),
+              )
             ) : (
               <TableRow>
                 <TableCell colSpan={5} className="h-25">
                   <div className="flex h-full w-full items-center justify-center">
-                    {accountsQuery.isPending ? (
+                    {infiniteAccountsQuery.isPending ? (
                       <>
                         Loading
                         <p className="ellipsis"></p>
@@ -374,6 +393,13 @@ const AccountsPage: FC = () => {
             )}
           </TableBody>
         </Table>
+        <div ref={tableFooterIntersectionObserver.refObj}></div>
+        {infiniteAccountsQuery.isFetching &&
+          infiniteAccountsQuery.data?.pages.length && (
+            <div className="flex h-8 w-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-stone-300 border-t-transparent"></div>
+            </div>
+          )}
       </div>
       <Link to={""} />
     </DashboardLayout>
