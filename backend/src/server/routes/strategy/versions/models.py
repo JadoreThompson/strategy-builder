@@ -24,7 +24,7 @@ class BacktestPositionsChartResponse(BaseModel):
     pnl: float
 
 
-class Position(CustomBaseModel):
+class PositionResponse(CustomBaseModel):
     position_id: str
     instrument: str
     side: str

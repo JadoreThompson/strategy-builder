@@ -25,7 +25,7 @@ from server.models import PaginatedResponse, StrategyVersionResponse, BacktestRe
 from server.services import JWTService
 from server.typing import JWTPayload
 from .connection_manager import ConnectionManager
-from .models import BacktestCreate, BacktestCreateResponse, Position
+from .models import BacktestCreate, BacktestCreateResponse, PositionResponse
 
 
 route = APIRouter(tags=["strategy-versions"])
@@ -147,9 +147,13 @@ async def get_backtests(
     )
 
 
-@route.get("/versions/{version_id}/positions", response_model=list[Position])
+@route.get(
+    "/versions/{version_id}/positions",
+    response_model=PaginatedResponse[PositionResponse],
+)
 async def get_positions(
     version_id: UUID,
+    page: int = Query(1, ge=1),
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
@@ -159,30 +163,39 @@ async def get_positions(
         .join(Strategies, Strategies.strategy_id == StrategyVersions.strategy_id)
         .where(Positions.version_id == version_id, Positions.user_id == jwt.sub)
         .order_by(Positions.created_at.desc())
+        .offset((page - 1) * PAGE_SIZE)
+        .limit(PAGE_SIZE + 1)
     )
 
-    return [
-        Position(
-            id=p.position_id,
-            instrument=p.instrument,
-            side=p.side,
-            order_type=p.order_type,
-            starting_amount=p.starting_amount,
-            current_amount=p.current_amount,
-            price=p.price,
-            limit_price=p.limit_price,
-            stop_price=p.stop_price,
-            tp_price=p.tp_price,
-            sl_price=p.sl_price,
-            realised_pnl=p.realised_pnl,
-            unrealised_pnl=p.unrealised_pnl,
-            status=p.status,
-            created_at=p.created_at,
-            close_price=p.close_price,
-            closed_at=p.closed_at,
-        )
-        for p in res.all()
-    ]
+    rows = res.all()
+
+    return PaginatedResponse[PositionResponse](
+        page=page,
+        size=min(len(rows), PAGE_SIZE),
+        has_next=len(rows) > PAGE_SIZE,
+        data=[
+            PositionResponse(
+                id=p.position_id,
+                instrument=p.instrument,
+                side=p.side,
+                order_type=p.order_type,
+                starting_amount=p.starting_amount,
+                current_amount=p.current_amount,
+                price=p.price,
+                limit_price=p.limit_price,
+                stop_price=p.stop_price,
+                tp_price=p.tp_price,
+                sl_price=p.sl_price,
+                realised_pnl=p.realised_pnl,
+                unrealised_pnl=p.unrealised_pnl,
+                status=p.status,
+                created_at=p.created_at,
+                close_price=p.close_price,
+                closed_at=p.closed_at,
+            )
+            for p in rows[:PAGE_SIZE]
+        ],
+    )
 
 
 @route.delete("/versions/{version_id}")
