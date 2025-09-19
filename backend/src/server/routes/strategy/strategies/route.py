@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlalchemy import insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import PAGE_SIZE
 from db_models import Strategies, StrategyVersions, Backtests
 from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
+from server.models import PaginatedResponse
 from server.typing import JWTPayload
 from .models import (
     BacktestResult,
@@ -77,9 +79,10 @@ async def create_strategy_version(
     return StrategyCreateResponse(strategy_id=strategy_id, version_id=version_id)
 
 
-@route.get("/", response_model=list[StrategiesResponse])
+@route.get("/", response_model=PaginatedResponse[StrategiesResponse])
 async def get_strategies(
     name: str | None = None,
+    page: int = 1,
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
@@ -90,12 +93,22 @@ async def get_strategies(
     if name:
         q = q.where(Strategies.name.like(f"%{name}%"))
 
-    res = await db_sess.execute(q.order_by(Strategies.created_at.desc()))
+    res = await db_sess.execute(
+        q.order_by(Strategies.created_at.desc())
+        .offset((page - 1) * 10)
+        .limit(PAGE_SIZE + 1)
+    )
     data = res.all()
-    return [
-        StrategiesResponse(strategy_id=strat_id, name=name, created_at=created_at)
-        for strat_id, name, created_at in data
-    ]
+
+    return PaginatedResponse[StrategiesResponse](
+        page=page,
+        size=min(PAGE_SIZE, len(data)),
+        has_next=len(data) > PAGE_SIZE,
+        data=[
+            StrategiesResponse(strategy_id=strat_id, name=name, created_at=created_at)
+            for strat_id, name, created_at in data
+        ],
+    )
 
 
 @route.get("/{strategy_id}/versions", response_model=list[StrategyVersionsResponse])
