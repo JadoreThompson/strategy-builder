@@ -1,10 +1,11 @@
 import useIntersectionObserver from "@/hooks/intersection-observer";
-import {
-  useInfinitePositionsQuery,
-  usePositionsQuery,
-} from "@/hooks/strategy-version-hooks";
+import { useInfinitePositionsQuery } from "@/hooks/strategy-version-hooks";
+import type { PositionResponse } from "@/openapi";
+
+import { useWsTokenQuery } from "@/hooks/auth-hooks";
+import { usePositionWebsocketStore } from "@/stores/position-websocket-store";
 import dayjs from "dayjs";
-import type { FC } from "react";
+import { useEffect, useState, type FC } from "react";
 import { Skeleton } from "./ui/skeleton";
 import {
   Table,
@@ -16,8 +17,15 @@ import {
 } from "./ui/table";
 
 const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
-  const positionsQuery = usePositionsQuery(versionId);
+  const [positions, setPositions] = useState<PositionResponse[]>([]);
 
+  const wsConnect = usePositionWebsocketStore((state) => state.connect);
+  const wsDisconnect = usePositionWebsocketStore((state) => state.disconnect);
+  const eventsIterator = usePositionWebsocketStore(
+    (state) => state.eventsIterator,
+  );
+
+  const wsTokenQuery = useWsTokenQuery();
   const infinitePositionsQuery = useInfinitePositionsQuery(versionId);
   const footerIntersectionObserver = useIntersectionObserver<HTMLDivElement>(
     () => {
@@ -28,10 +36,46 @@ const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
     },
   );
 
-  const foundPositions =
-    infinitePositionsQuery.data &&
-    infinitePositionsQuery.data.pages.length &&
-    infinitePositionsQuery.data.pages[0].size;
+  useEffect(() => {
+    if (wsTokenQuery.error) {
+      console.error(wsTokenQuery.error);
+      return;
+    }
+
+    if (!wsTokenQuery.data) return;
+
+    wsConnect(versionId, wsTokenQuery.data.token as string);
+
+    const updatePositions = async () => {
+      for await (const event of eventsIterator()) {
+        const targetPos = event.position;
+
+        if (event.type === "new")
+          return setPositions((prev) => [targetPos, ...prev]);
+        if (event.type === "update")
+          return setPositions((prev) =>
+            prev.map((pos) =>
+              pos.position_id === targetPos.position_id ? targetPos : pos,
+            ),
+          );
+
+        return positions;
+      }
+    };
+
+    updatePositions();
+
+    return () => {
+      wsDisconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const pages = infinitePositionsQuery.data?.pages;
+    if (pages) {
+      setPositions((prev) => [...prev, ...pages[pages.length - 1].data]);
+    }
+  }, [infinitePositionsQuery.data]);
 
   return (
     <>
@@ -64,29 +108,45 @@ const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
 
           {infinitePositionsQuery.data && (
             <>
-              {foundPositions ? (
-                infinitePositionsQuery.data.pages.map((page) =>
-                  page.data.map((p) => (
-                    <TableRow key={p.position_id}>
-                      <TableCell>{p.instrument}</TableCell>
-                      <TableCell>{p.side}</TableCell>
-                      <TableCell>{p.order_type}</TableCell>
-                      <TableCell>{p.starting_amount.toFixed(2)}</TableCell>
-                      <TableCell>
-                        {p.current_amount?.toFixed(2) ?? "-"}
-                      </TableCell>
-                      <TableCell>{p.price?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell>{p.realised_pnl?.toFixed(2) ?? "-"}</TableCell>
-                      <TableCell>
-                        {p.unrealised_pnl?.toFixed(2) ?? "-"}
-                      </TableCell>
-                      <TableCell>{p.status}</TableCell>
-                      <TableCell className="text-right">
-                        {dayjs(p.created_at).format("YYYY-MM-DD")}
-                      </TableCell>
-                    </TableRow>
-                  )),
-                )
+              {positions.length ? (
+                // infinitePositionsQuery.data.pages.map((page) =>
+                //   page.data.map((p) => (
+                //     <TableRow key={p.position_id}>
+                //       <TableCell>{p.instrument}</TableCell>
+                //       <TableCell>{p.side}</TableCell>
+                //       <TableCell>{p.order_type}</TableCell>
+                //       <TableCell>{p.starting_amount.toFixed(2)}</TableCell>
+                //       <TableCell>
+                //         {p.current_amount?.toFixed(2) ?? "-"}
+                //       </TableCell>
+                //       <TableCell>{p.price?.toFixed(2) ?? "-"}</TableCell>
+                //       <TableCell>{p.realised_pnl?.toFixed(2) ?? "-"}</TableCell>
+                //       <TableCell>
+                //         {p.unrealised_pnl?.toFixed(2) ?? "-"}
+                //       </TableCell>
+                //       <TableCell>{p.status}</TableCell>
+                //       <TableCell className="text-right">
+                //         {dayjs(p.created_at).format("YYYY-MM-DD")}
+                //       </TableCell>
+                //     </TableRow>
+                //   )),
+                // )
+                positions.map((p) => (
+                  <TableRow key={p.position_id}>
+                    <TableCell>{p.instrument}</TableCell>
+                    <TableCell>{p.side}</TableCell>
+                    <TableCell>{p.order_type}</TableCell>
+                    <TableCell>{p.starting_amount}</TableCell>
+                    <TableCell>{p.current_amount ?? "-"}</TableCell>
+                    <TableCell>{p.price ?? "-"}</TableCell>
+                    <TableCell>{p.realised_pnl ?? "-"}</TableCell>
+                    <TableCell>{p.unrealised_pnl ?? "-"}</TableCell>
+                    <TableCell>{p.status}</TableCell>
+                    <TableCell className="text-right">
+                      {dayjs(p.created_at).format("YYYY-MM-DD")}
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : (
                 <TableRow>
                   <TableCell colSpan={10} className="h-50 !bg-gray-100">
@@ -99,7 +159,7 @@ const PositionsTable: FC<{ versionId: string }> = ({ versionId }) => {
             </>
           )}
 
-          {positionsQuery.isPending && (
+          {infinitePositionsQuery.isPending && (
             <TableRow>
               <TableCell colSpan={10} className="h-50">
                 <Skeleton className="h-full w-full bg-gray-100" />

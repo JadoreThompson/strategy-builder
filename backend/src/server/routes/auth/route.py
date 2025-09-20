@@ -10,7 +10,7 @@ from db_models import Users
 from server.dependencies import depends_db_sess, depends_jwt
 from server.services import JWTService
 from server.typing import JWTPayload
-from .models import UserCreate, UserLogin
+from .models import UserCreate, UserLogin, WsTokenResponse
 
 
 route = APIRouter(prefix="/auth", tags=["auth"])
@@ -51,10 +51,10 @@ async def login(body: UserLogin, db_sess: AsyncSession = Depends(depends_db_sess
     return JWTService.set_cookie(user_id)
 
 
-@route.get("/ws-token")
+@route.get("/ws-token", response_model=WsTokenResponse)
 async def get_ws_token(jwt: JWTPayload = Depends(depends_jwt)):
-    return {
-        "token": JWTService.generate(
+    return WsTokenResponse(
+        token=JWTService.generate(
             sub=jwt.sub, exp=get_datetime() + timedelta(minutes=1)
         )
-    }
+    )

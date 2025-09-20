@@ -285,7 +285,7 @@ async def get_positions(
         has_next=len(rows) > PAGE_SIZE,
         data=[
             PositionResponse(
-                id=p.position_id,
+                position_id=p.position_id,
                 instrument=p.instrument,
                 side=p.side,
                 order_type=p.order_type,
@@ -341,11 +341,11 @@ async def positions_websocket(
         token = json.loads(m).get("token")
         payload = JWTService.decode(token)
     except AIOTimeoutError:
-        await ws.close(code=1008, reason="Token not received in time.")
+        return await ws.close(code=1008, reason="Token not received in time.")
     except AttributeError:
-        await ws.close(code=1008, reason="Invalid token.")
+        return await ws.close(code=1008, reason="Invalid token.")
     except JWTError as e:
-        await ws.close(code=1008, reason=f"Invalid token {str(e)}.")
+        return await ws.close(code=1008, reason=f"Invalid token {str(e)}.")
 
     obj = await db_sess.scalar(
         select(1).select_from(
@@ -359,7 +359,7 @@ async def positions_websocket(
         )
     )
     if not obj:
-        await ws.close(code=1008, reason=f"Version not found.")
+        return await ws.close(code=1008, reason=f"Version not found.")
 
     user_id = payload.sub
     version_id = str(version_id)

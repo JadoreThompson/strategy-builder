@@ -16,6 +16,7 @@ import {
 const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
   props,
 ) => {
+
   const infiniteBacktestsQuery = useInfiniteBacktestsQuery(props.versionId);
 
   const tableFooterIntersectionObserver =
@@ -29,6 +30,7 @@ const BacktestsTable: FC<{ versionId: string; refreshCounter: number }> = (
   useEffect(() => {
     infiniteBacktestsQuery.refetch();
   }, [props.refreshCounter]);
+
 
   const backtestsFound =
     infiniteBacktestsQuery.data &&

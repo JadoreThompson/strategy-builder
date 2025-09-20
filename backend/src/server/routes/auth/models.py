@@ -1,11 +1,15 @@
-from core.typing import CustomBaseModel
+from pydantic import BaseModel
 
 
-class UserCreate(CustomBaseModel):
+class UserCreate(BaseModel):
     username: str
     password: str
 
 
-class UserLogin(CustomBaseModel):
+class UserLogin(BaseModel):
     username: str
     password: str
+
+
+class WsTokenResponse(BaseModel):
+    token: str

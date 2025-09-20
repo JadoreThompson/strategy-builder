@@ -28,6 +28,5 @@ export function useWsTokenQuery() {
     queryKey: queryKeys.wsToken(),
     queryFn: async () => handleApi(await getWsTokenAuthWsTokenGet()),
     staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
   });
 }

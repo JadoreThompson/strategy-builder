@@ -41,16 +41,18 @@ class ConnectionManager:
             m: ConsumerRecord
             async for m in consumer:
                 try:
-                    decoded = m.value.decode()
-                    event = PositionEvent(**json.loads(decoded))
-
+                    event = PositionEvent.model_validate_json(m.value)
                     if self._active_conns.get(event.user_id, {}).get(event.version_id):
                         ddict = event.to_serialisable_dict()
+                        
                         ddict.pop("user_id")
+                        ddict.pop("version_id")
+
                         await self._active_conns[event.user_id][
                             event.version_id
                         ].send_text(json.dumps(ddict))
-                except ValidationError:
+                except ValidationError as e:
+                    logger.debug(f"Validation Error: {str(e)}")
                     continue
                 except Exception as e:
                     logger.info(

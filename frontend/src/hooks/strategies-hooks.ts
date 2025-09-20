@@ -32,7 +32,6 @@ export function useInfiniteStrategiesQuery(
       ),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
-      console.log("Hi there strats");
       if (lastPage.has_next) {
         return lastPage.page;
       }

@@ -74,5 +74,5 @@ class PositionRelay:
     def relay_event(self, event: PositionEvent) -> None:
         self._producer.send(
             KAFKA_POSITIONS_WEBSOCKET_TOPIC,
-            json.dumps(event.model_dump_json()).encode(),
+            json.dumps(event.to_serialisable_dict()).encode(),
         )

@@ -299,6 +299,10 @@ export interface ValidationError {
   type: string;
 }
 
+export interface WsTokenResponse {
+  token: string;
+}
+
 export type GetAccountsAccountsGetParams = {
   name?: string | null;
   page?: number;
@@ -638,7 +642,7 @@ export const loginAuthLoginPost = async (
  * @summary Get Ws Token
  */
 export type getWsTokenAuthWsTokenGetResponse200 = {
-  data: unknown;
+  data: WsTokenResponse;
   status: 200;
 };
 

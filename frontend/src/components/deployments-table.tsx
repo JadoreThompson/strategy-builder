@@ -40,8 +40,10 @@ const StopDeploymentConfirmationModal: FC<{
   onClose: () => void;
   onSubmit: () => void;
 }> = ({ onClose, onSubmit }) => {
+
   const [confirmationText, setConfirmationText] = useState("");
   const [randWord] = useState<string>(getRandomWord(6));
+
 
   return (
     <Card className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
