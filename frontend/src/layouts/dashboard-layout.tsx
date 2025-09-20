@@ -21,13 +21,13 @@ const DashboardSidebar = ({}: {}) => {
 
   return (
     <Sidebar className="transition-all">
-      <SidebarHeader>
+      <SidebarHeader className="bg-sidebar">
         <Link to="/" className="flex items-center gap-2 font-semibold">
           <Scale className="h-6 w-6" />
           StratBuilder
         </Link>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="bg-sidebar">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -42,7 +42,7 @@ const DashboardSidebar = ({}: {}) => {
                     <Link
                       to={`/${val}`}
                       className={`flex items-center gap-2 ${
-                        path === val ? "bg-gray-300/20 font-medium" : ""
+                        path === val ? "bg-gray-300/20 font-semibold" : "font-medium"
                       }`}
                     >
                       <I className="h-4 w-4 font-bold" />

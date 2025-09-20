@@ -167,3 +167,8 @@
 .smooth-fall {
   animation: showScroll reverse 1s;
 }
+
+
+.bg-sidebar {
+  background-color: white;
+}
