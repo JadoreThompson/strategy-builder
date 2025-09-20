@@ -1,12 +1,8 @@
-from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal, NamedTuple
-from uuid import UUID
 
-from core.enums import OrderType, PositionStatus, Side
 from core.typing import CustomBaseModel, Position
-from utils import get_datetime
 
 
 BullishBearish = Literal["bullish", "bearish"]

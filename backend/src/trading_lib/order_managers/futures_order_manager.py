@@ -3,8 +3,8 @@ from decimal import Decimal
 
 from core.enums import OrderType, Side
 from core.typing import Position
-from lib.exchanges import FuturesExchange
-from lib.typing import MODIFY_SENTINEL
+from trading_lib.exchanges import FuturesExchange
+from trading_lib.typing import MODIFY_SENTINEL
 
 
 class FuturesOrderManager:

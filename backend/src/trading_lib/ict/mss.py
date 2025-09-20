@@ -1,4 +1,4 @@
-from lib.typing import OHLC, MSS
+from trading_lib.typing import OHLC, MSS
 
 
 def detect_bullish_mss(ohlcs: tuple[OHLC]) -> list[MSS]:

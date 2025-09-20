@@ -1,14 +1,14 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import insert, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import PAGE_SIZE
 from db_models import Strategies, StrategyVersions, Backtests
-from server import tasks
 from server.dependencies import depends_db_sess, depends_jwt
 from server.models import PaginatedResponse
+from server.services import LLMService
 from server.typing import JWTPayload
 from .models import (
     BacktestResult,
@@ -25,10 +25,14 @@ route = APIRouter(prefix="/strategies", tags=["strategies"])
 @route.post("/", response_model=StrategyCreateResponse)
 async def create_strategy_version(
     body: StrategyCreate,
-    background_tasks: BackgroundTasks,
     jwt: JWTPayload = Depends(depends_jwt),
     db_sess: AsyncSession = Depends(depends_db_sess),
 ):
+    success, txt = await LLMService.generate_code(body.prompt)
+    if not success:
+        raise HTTPException(txt)
+    cleaned_code = LLMService.clean_code(txt)
+
     strategy_id = body.strategy_id
     user_id = jwt.sub
     name = body.name
@@ -67,14 +71,14 @@ async def create_strategy_version(
 
     res = await db_sess.execute(
         insert(StrategyVersions)
-        .values(strategy_id=strategy_id, name=name, prompt=body.prompt)
+        .values(
+            strategy_id=strategy_id, name=name, prompt=body.prompt, code=cleaned_code
+        )
         .returning(StrategyVersions.version_id)
     )
     version_id = res.scalar()
 
     await db_sess.commit()
-
-    background_tasks.add_task(tasks.generate_strategy_code, version_id, body.prompt)
 
     return StrategyCreateResponse(strategy_id=strategy_id, version_id=version_id)
 

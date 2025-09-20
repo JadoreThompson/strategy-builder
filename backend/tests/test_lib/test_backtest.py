@@ -3,10 +3,10 @@ import pandas as pd
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-from src.lib.backtest import Backtest
-from src.lib.strategy import Strategy
+from src.trading_lib.backtest import Backtest
+from src.trading_lib.strategy import Strategy
 from src.core.enums import Side, OrderType, PositionStatus
-from src.lib.typing import Position, Tick, BacktestResult
+from src.trading_lib.typing import Position, Tick, BacktestResult
 
 
 class MockStrategy(Strategy):

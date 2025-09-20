@@ -4,8 +4,8 @@ from uuid import UUID
 import pandas as pd
 
 from core.enums import OrderType, PositionStatus
-from lib.exchanges import BacktestFuturesExchange
-from lib.typing import BacktestResult
+from trading_lib.exchanges import BacktestFuturesExchange
+from trading_lib.typing import BacktestResult
 from .order_managers import BacktestFuturesOrderManager
 from .strategy import Strategy
 

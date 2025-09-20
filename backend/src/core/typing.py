@@ -1,16 +1,10 @@
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 from json import loads
-from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
-
-
-from dataclasses import dataclass, field
-from datetime import datetime
-from decimal import Decimal
-from typing import Literal, NamedTuple
+from pydantic import BaseModel, Field
 
 from core.enums import OrderType, PositionStatus, Side
 from utils import get_datetime
@@ -29,9 +23,6 @@ class CustomBaseModel(BaseModel):
         return loads(self.model_dump_json())
 
 
-class DeploymentPayload(CustomBaseModel):
-    deployment_id: UUID
-
 
 # TODO: Add support for partials
 class Position(CustomBaseModel):
@@ -49,22 +40,10 @@ class Position(CustomBaseModel):
     realised_pnl: Decimal | None = Decimal("0.0")
     unrealised_pnl: Decimal | None = Decimal("0.0")
     status: PositionStatus = PositionStatus.PENDING
-    created_at: datetime | None = field(default_factory=get_datetime)
+    created_at: datetime | None = Field(default_factory=get_datetime)
     close_price: float | None = None
     closed_at: datetime | None = None
     extras: dict | None = None # Extra platform specific data
 
     def model_post_init(self, context):
         self.current_amount = self.starting_amount
-
-
-class PositionMessage(CustomBaseModel):
-    """
-    Object containing all necessary fields
-    for persistence and communication with the positions logger
-    and the client manager.
-    """
-    topic: Literal["new", "update"]
-    user_id: str
-    version_id: str
-    position: Position

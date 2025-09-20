@@ -58,14 +58,20 @@ DB_ENGINE_SYNC = create_engine(
 
 
 # Kafka
-KAFKA_POSITIONS_TOPIC = os.getenv(
-    "KAFKA_POSITIONS_TOPIC", "positions"
-)  # Position updates from log worker
-KAFKA_POSITIONS_LOGGER_TOPIC = os.getenv(
-    "KAFKA_POSITIONS_LOGGER_TOPIC", "positions_logger"
-)  # Position updates from strategies
 KAFKA_HOST = os.getenv("KAFKA_HOST", "localhost")
 KAFKA_PORT = int(os.getenv("KAFKA_PORT", "9092"))
+KAFKA_POSITIONS_WEBSOCKET_TOPIC = os.getenv(
+    "KAFKA_POSITIONS_TOPIC", "positions_websocket_topic"
+)
+KAFKA_POSITIONS_WEBSOCKET_TOPIC_GROUP = os.getenv(
+    "KAFKA_POSITIONS_WEBSOCKET_TOPIC_GROUP", "positions_websocket_topic_group"
+)
+KAFKA_POSITIONS_LOGGER_TOPIC = os.getenv(
+    "KAFKA_POSITIONS_LOGGER_TOPIC", "positions_logger_topic"
+)
+KAFKA_POSITIONS_LOGGER_TOPIC_GROUP = os.getenv(
+    "KAFKA_POSITIONS_LOGGER_TOPIC_GROUP", "positions_logger_topic_group_1"
+)
 
 
 # LLM
@@ -82,8 +88,9 @@ else:
     SYSTEM_PROMPT = open(fpath, "r").read()
 
 
-PAGE_SIZE = 10
-
 class Dummy:
     def put_nowait(self, *args, **kw): ...
+
+
 DEPLOYMENT_QUEUE: Queue = Dummy()  # Must be initialised by main.py
+PAGE_SIZE = 10

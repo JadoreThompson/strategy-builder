@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from core.typing import CustomBaseModel
-from lib.enums import TradingPlatform
+from trading_lib.enums import TradingPlatform
 
 
 class AccountCreate(CustomBaseModel):

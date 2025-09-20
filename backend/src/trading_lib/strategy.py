@@ -1,9 +1,8 @@
 from abc import abstractmethod
 
-from lib.order_managers.futures_order_manager import FuturesOrderManager
+from trading_lib.order_managers.futures_order_manager import FuturesOrderManager
 from core.enums import StrategyType
-from lib.enums import TradingPlatform
-from lib.typing import Tick
+from trading_lib.typing import Tick
 
 
 class Strategy:

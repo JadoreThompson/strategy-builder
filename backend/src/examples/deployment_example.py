@@ -8,12 +8,12 @@ from sqlalchemy import select
 
 from core.enums import OrderType, Side, StrategyType
 from db_models import Ticks
-from lib import Strategy, TradingPlatform
-from lib.exchanges.mt5_futures_exchange import MT5FuturesExchange
-from lib.order_managers.mt5_futures_order_manager import (
+from trading_lib import Strategy, TradingPlatform
+from trading_lib.exchanges.mt5_futures_exchange import MT5FuturesExchange
+from trading_lib.order_managers.mt5_futures_order_manager import (
     MT5FuturesOrderManager,
 )
-from lib.typing import Tick
+from trading_lib.typing import Tick
 from utils import get_db_sess_sync
 
 

@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 
 from src.core.enums import Side, OrderType, PositionStatus
-from src.lib.exchanges.backtest_futures_exchange import BacktestFuturesExchange
-from src.lib.typing import Tick, Position
+from src.trading_lib.exchanges.backtest_futures_exchange import BacktestFuturesExchange
+from src.trading_lib.typing import Tick, Position
 
 
 @pytest.fixture

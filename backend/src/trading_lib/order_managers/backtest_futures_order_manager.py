@@ -5,7 +5,7 @@ from pprint import pprint
 
 from core.enums import OrderType, PositionStatus, Side
 from core.typing import Position
-from lib.typing import MODIFY_SENTINEL, Tick
+from trading_lib.typing import MODIFY_SENTINEL, Tick
 from utils import get_datetime
 from .futures_order_manager import FuturesOrderManager
 

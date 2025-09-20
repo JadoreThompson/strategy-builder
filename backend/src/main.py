@@ -1,11 +1,12 @@
 import asyncio
 import logging
-import multiprocessing
-from multiprocessing import Process
+from multiprocessing import Process, Queue
+from multiprocessing.queues import Queue as MPQueue
 
 import uvicorn
 
-from workers import deployment_queue_listener, positions_logger, run_server
+from core.events import CoreEvent, DeploymentEvent
+from infra import DeploymentConsumer, PositionRelay
 
 
 logger = logging.getLogger(__name__)
@@ -15,15 +16,33 @@ def main0():
     uvicorn.run("server.app:app", port=8000, host="localhost", reload=True)
 
 
+def run_server(queue) -> None:
+    global logger
+
+    logger.info("Starting server.")
+    import config
+
+    config.DEPLOYMENT_QUEUE = queue
+    uvicorn.run("server.app:app", port=8000, host="localhost")
+
+
+def handle_deployment_consumer(queue: MPQueue) -> None:
+    consumer = DeploymentConsumer()
+
+    while True:
+        ev: CoreEvent[DeploymentEvent] = queue.get_nowait()
+        consumer.consume(ev.data)
+
+
 async def main1():
     global logger
-    
-    queue = multiprocessing.Queue()
+
+    queue = Queue()
 
     pargs = (
         (run_server, (queue,), {}, "Server"),
-        (deployment_queue_listener, (queue,), {}, "Deployment queue listener"),
-        (positions_logger, (), {}, "Positions logger")
+        (handle_deployment_consumer, (queue,), {}, "Deployment Consumer"),
+        (PositionRelay().listen, (), {}, "Positions Relay"),
     )
 
     ps = [

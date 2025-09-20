@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Generator
 
-from lib.typing import Tick
+from trading_lib.typing import Tick
 
 
 class Exchange:

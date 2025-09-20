@@ -41,3 +41,8 @@ class DeploymentStatus(str, Enum):
     DEPLOYED = "deployed"
     STOPPED = "stopped"
     FAILED = "failed"
+
+
+class CoreEventType(int, Enum):
+    POSITION_EVENT = 0
+    DEPLOYMENT_EVENT = 1

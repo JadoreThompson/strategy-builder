@@ -1,15 +1,15 @@
 import asyncio
-from collections import defaultdict
 import json
 import logging
+from collections import defaultdict
 
 from aiokafka import AIOKafkaConsumer, ConsumerRecord
 from fastapi import WebSocket
 from pydantic import ValidationError
 from starlette.websockets import WebSocketState
 
-from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_TOPIC
-from core.typing import PositionMessage
+from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_WEBSOCKET_TOPIC
+from core.events import PositionEvent
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class ConnectionManager:
 
     async def _start(self):
         consumer = AIOKafkaConsumer(
-            KAFKA_POSITIONS_TOPIC,
+            KAFKA_POSITIONS_WEBSOCKET_TOPIC,
             bootstrap_servers=f"{KAFKA_HOST}:{KAFKA_PORT}",
             group_id="my-group",
         )
@@ -42,13 +42,13 @@ class ConnectionManager:
             async for m in consumer:
                 try:
                     decoded = m.value.decode()
-                    data = PositionMessage(**json.loads(decoded))
-                    
-                    if self._active_conns.get(data.user_id, {}).get(data.version_id):
-                        ddict = data.to_serialisable_dict()
+                    event = PositionEvent(**json.loads(decoded))
+
+                    if self._active_conns.get(event.user_id, {}).get(event.version_id):
+                        ddict = event.to_serialisable_dict()
                         ddict.pop("user_id")
-                        await self._active_conns[data.user_id][
-                            data.version_id
+                        await self._active_conns[event.user_id][
+                            event.version_id
                         ].send_text(json.dumps(ddict))
                 except ValidationError:
                     continue

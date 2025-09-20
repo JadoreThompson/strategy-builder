@@ -11,8 +11,8 @@ from sqlalchemy import select
 
 from core.enums import OrderType, Side, StrategyType
 from db_models import Ticks
-from lib import Strategy, TradingPlatform
-from lib.typing import Tick
+from trading_lib import Strategy, TradingPlatform
+from trading_lib.typing import Tick
 from utils import get_db_sess_sync
 
 
@@ -66,7 +66,7 @@ class UserStrategy(Strategy):
 def main():
     import pandas as pd
     from config import RESOURCES_PATH
-    from lib import Backtest
+    from trading_lib import Backtest
 
     def startup(*args, **kw):
         nonlocal strat

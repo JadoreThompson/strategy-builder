@@ -1,17 +1,14 @@
-from dataclasses import asdict
 import logging
 from decimal import Decimal
-from typing import cast
-from uuid import UUID
 
 import MetaTrader5 as mt5
 from kafka import KafkaProducer
 
-from core.typing import PositionMessage
 from config import KAFKA_HOST, KAFKA_PORT, KAFKA_POSITIONS_LOGGER_TOPIC
-from core.enums import OrderType, PositionStatus, Side
+from core.events import CoreEvent, PositionEvent
+from core.enums import CoreEventType, OrderType, PositionStatus, Side
 from core.typing import Position
-from lib.typing import MODIFY_SENTINEL
+from trading_lib.typing import MODIFY_SENTINEL
 from .futures_order_manager import FuturesOrderManager
 
 
@@ -64,17 +61,19 @@ class MT5FuturesOrderManager(FuturesOrderManager):
         )
         if pos:
             self._positions[pos.position_id] = pos
-            print("User ID:", self._user_id, 'Version ID:', self._version_id)
             self._producer.send(
                 KAFKA_POSITIONS_LOGGER_TOPIC,
-                PositionMessage(
-                    topic="new",
-                    user_id=self._user_id,
-                    version_id=self._version_id,
-                    position=pos,
+                CoreEvent[PositionEvent](
+                    event_type=CoreEventType.POSITION_EVENT,
+                    data=PositionEvent(
+                        type="new",
+                        user_id=self._user_id,
+                        version_id=self._version_id,
+                        position=pos,
+                    ),
                 )
                 .model_dump_json()
-                .encode("utf-8"),
+                .encode(),
             )
             return pos.position_id
         return None
@@ -99,14 +98,17 @@ class MT5FuturesOrderManager(FuturesOrderManager):
             self._positions[position_id] = updated_pos
             self._producer.send(
                 KAFKA_POSITIONS_LOGGER_TOPIC,
-                PositionMessage(
-                    topic="update",
-                    user_id=self._user_id,
-                    version_id=self._version_id,
-                    position=updated_pos,
+                CoreEvent[PositionEvent](
+                    event_type=CoreEventType.POSITION_EVENT,
+                    data=PositionEvent(
+                        type="update",
+                        user_id=self._user_id,
+                        version_id=self._version_id,
+                        position=pos,
+                    ),
                 )
                 .model_dump_json()
-                .encode("utf-8"),
+                .encode(),
             )
         return success
 

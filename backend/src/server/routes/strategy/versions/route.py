@@ -15,8 +15,9 @@ from starlette.websockets import WebSocketDisconnect
 from sqlalchemy import insert, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import PAGE_SIZE
-from core.enums import TaskStatus
+from config import DEPLOYMENT_QUEUE, PAGE_SIZE
+from core.enums import CoreEventType, TaskStatus
+from core.events import CoreEvent, DeploymentEvent
 from db_models import (
     Accounts,
     Deployments,
@@ -37,7 +38,12 @@ from server.models import (
 from server.services import JWTService
 from server.typing import JWTPayload
 from .connection_manager import ConnectionManager
-from .models import BacktestCreate, BacktestCreateResponse, PositionResponse
+from .models import (
+    BacktestCreate,
+    BacktestCreateResponse,
+    DeploymentCreate,
+    PositionResponse,
+)
 
 
 route = APIRouter(tags=["strategy-versions"])
@@ -93,6 +99,59 @@ async def create_backtest(
     background_tasks.add_task(tasks.run_backtest, bt_dict["backtest_id"], bt_params)
 
     return bt_dict
+
+
+@route.post("/versions/{version_id}/deployments", response_model=DeploymentResponse)
+async def create_deployment(
+    body: DeploymentCreate,
+    version_id: UUID,
+    jwt: JWTPayload = Depends(depends_jwt),
+    db_sess: AsyncSession = Depends(depends_db_sess),
+):
+    account = await db_sess.scalar(
+        select(Accounts).where(
+            Accounts.account_id == body.account_id, Accounts.user_id == jwt.sub
+        )
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    variant = await db_sess.scalar(
+        select(StrategyVersions).where(StrategyVersions.version_id == version_id)
+    )
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+
+    res = await db_sess.execute(
+        insert(Deployments)
+        .values(
+            account_id=body.account_id,
+            version_id=version_id,
+            instrument=body.instrument,
+            status=TaskStatus.PENDING.value,
+        )
+        .returning(Deployments)
+    )
+    deployment = res.scalar()
+
+    dep_rsp = DeploymentResponse(
+        deployment_id=deployment.deployment_id,
+        account_id=deployment.account_id,
+        account_name=account.name,
+        version_id=deployment.version_id,
+        instrument=deployment.instrument,
+        status=deployment.status,
+        created_at=deployment.created_at,
+    )
+    event = CoreEvent[DeploymentEvent](
+        event_type=CoreEventType.DEPLOYMENT_EVENT,
+        data=DeploymentEvent(deployment_id=deployment.deployment_id),
+    )
+
+    await db_sess.commit()
+    
+    DEPLOYMENT_QUEUE.put_nowait(event)
+    return dep_rsp
 
 
 @route.get("/versions/{version_id}", response_model=StrategyVersionResponse)
@@ -159,7 +218,9 @@ async def get_backtests(
     )
 
 
-@route.get("/{version_id}/deployments", response_model=PaginatedResponse[DeploymentResponse])
+@route.get(
+    "/versions/{version_id}/deployments", response_model=PaginatedResponse[DeploymentResponse]
+)
 async def get_deployments(
     version_id: UUID,
     page: int = Query(1, ge=1),

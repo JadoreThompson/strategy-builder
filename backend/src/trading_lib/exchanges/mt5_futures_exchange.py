@@ -7,7 +7,7 @@ import MetaTrader5 as mt5
 
 from core.enums import OrderType, PositionStatus, Side
 from core.typing import Position
-from lib.typing import MODIFY_SENTINEL, Tick
+from trading_lib.typing import MODIFY_SENTINEL, Tick
 from .futures_exchange import FuturesExchange
 
 

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from core.enums import OrderType, Side
 from core.typing import Position
-from lib.typing import MODIFY_SENTINEL#, Position
+from trading_lib.typing import MODIFY_SENTINEL#, Position
 from .exchange import Exchange
 
 

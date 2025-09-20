@@ -9,13 +9,6 @@ class LLMService:
     @staticmethod
     async def generate_sample_code(prompt: str) -> str:
         """
-        Fetches a code gen response from LLM.
-
-        For now mocks a call to an LLM API to generate strategy code based on the prompt.
-        In a real application, this would call an external API like OpenAI.
-
-        Returns:
-            str: Raw prompt output
         """
         example_code = """
 from collections import deque

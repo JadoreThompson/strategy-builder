@@ -24,6 +24,11 @@ class BacktestPositionsChartResponse(BaseModel):
     pnl: float
 
 
+class DeploymentCreate(CustomBaseModel):
+    account_id: UUID
+    instrument: str
+
+
 class PositionResponse(CustomBaseModel):
     position_id: str
     instrument: str

@@ -1,8 +1,8 @@
 import pytest
 
-from src.lib.ict import fvg
+from src.trading_lib.ict import fvg
 from lib.ict.mss import detect_bullish_mss, detect_bearish_mss
-from src.lib.typing import OHLC, MSS, FVG
+from src.trading_lib.typing import OHLC, MSS, FVG
 
 
 @pytest.fixture

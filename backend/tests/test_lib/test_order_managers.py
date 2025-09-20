@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 
 from src.core.enums import Side, OrderType, PositionStatus
-from src.lib.order_managers.backtest_futures_order_manager import (
+from src.trading_lib.order_managers.backtest_futures_order_manager import (
     BacktestFuturesOrderManager,
 )
-from src.lib.typing import Position, Tick
+from src.trading_lib.typing import Position, Tick
 
 
 @pytest.fixture

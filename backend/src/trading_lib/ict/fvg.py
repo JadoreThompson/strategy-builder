@@ -1,4 +1,4 @@
-from lib.typing import FVG, OHLC
+from trading_lib.typing import FVG, OHLC
 
 
 def fvg(candles: list[OHLC]) -> FVG | None:

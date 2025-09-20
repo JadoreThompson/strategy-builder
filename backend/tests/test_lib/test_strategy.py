@@ -2,9 +2,9 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from src.core.enums import StrategyType
-from src.lib.enums import TradingPlatform
-from src.lib.strategy import Strategy
-from src.lib.typing import Tick
+from src.trading_lib.enums import TradingPlatform
+from src.trading_lib.strategy import Strategy
+from src.trading_lib.typing import Tick
 
 
 class TestStrategy(Strategy):
