@@ -7,9 +7,10 @@ import ScrollTop from "@/components/scroll-top";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCreateDeploymentMutation } from "@/hooks/deployments-hooks";
+
 import {
   useCreateBacktestMutation,
+  useCreateDeploymentMutation,
   useDeleteStrategyVersionMutation,
   useInfiniteBacktestsQuery,
   useInfiniteDeploymentsQuery,
@@ -152,9 +153,11 @@ const StrategyVersionPage: FC = () => {
 
     createDeploymentMutation
       .mutateAsync({
-        account_id,
-        version_id: versionId!,
-        instrument,
+        versionId: versionId!,
+        data: {
+          account_id,
+          instrument,
+        },
       })
       .then(() => {
         infiniteDeploymentsQuery.refetch();
@@ -286,7 +289,7 @@ const StrategyVersionPage: FC = () => {
         </div>
       </div>
       <div className="relative mx-auto mb-3 h-fit w-full max-w-7xl">
-        <div className="h-300 w-full"></div>
+        <div className="h-100 w-full"></div>
         {tab === "Backtests" && (
           <>
             <div className="absolute top-0 left-0 w-full">

@@ -109,7 +109,6 @@ export interface BacktestResultResponse {
 
 export interface DeploymentCreate {
   account_id: string;
-  version_id: string;
   instrument: string;
 }
 
@@ -318,14 +317,14 @@ export type GetStrategyVersionsStrategiesStrategyIdVersionsGetParams = {
   page?: number;
 };
 
-export type GetBacktestsStrategiesVersionsVersionIdBacktestsGetParams = {
+export type GetDeploymentsStrategiesVersionsVersionIdDeploymentsGetParams = {
   /**
    * @minimum 1
    */
   page?: number;
 };
 
-export type GetDeploymentsStrategiesVersionIdDeploymentsGetParams = {
+export type GetBacktestsStrategiesVersionsVersionIdBacktestsGetParams = {
   /**
    * @minimum 1
    */
@@ -755,47 +754,6 @@ export const getBacktestPositionsChartBacktestsBacktestIdPositionsChartGet =
   };
 
 /**
- * @summary Create Deployment
- */
-export type createDeploymentDeploymentsPostResponse200 = {
-  data: DeploymentResponse;
-  status: 200;
-};
-
-export type createDeploymentDeploymentsPostResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type createDeploymentDeploymentsPostResponseComposite =
-  | createDeploymentDeploymentsPostResponse200
-  | createDeploymentDeploymentsPostResponse422;
-
-export type createDeploymentDeploymentsPostResponse =
-  createDeploymentDeploymentsPostResponseComposite & {
-    headers: Headers;
-  };
-
-export const getCreateDeploymentDeploymentsPostUrl = () => {
-  return `/deployments/`;
-};
-
-export const createDeploymentDeploymentsPost = async (
-  deploymentCreate: DeploymentCreate,
-  options?: RequestInit,
-): Promise<createDeploymentDeploymentsPostResponse> => {
-  return customFetch<createDeploymentDeploymentsPostResponse>(
-    getCreateDeploymentDeploymentsPostUrl(),
-    {
-      ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
-      body: JSON.stringify(deploymentCreate),
-    },
-  );
-};
-
-/**
  * @summary Get Deployment
  */
 export type getDeploymentDeploymentsDeploymentIdGetResponse200 = {
@@ -1117,6 +1075,116 @@ export const createBacktestStrategiesVersionsVersionIdBacktestPost = async (
 };
 
 /**
+ * @summary Create Deployment
+ */
+export type createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponse200 =
+  {
+    data: DeploymentResponse;
+    status: 200;
+  };
+
+export type createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponse422 =
+  {
+    data: HTTPValidationError;
+    status: 422;
+  };
+
+export type createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponseComposite =
+
+    | createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponse200
+    | createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponse422;
+
+export type createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponse =
+  createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponseComposite & {
+    headers: Headers;
+  };
+
+export const getCreateDeploymentStrategiesVersionsVersionIdDeploymentsPostUrl =
+  (versionId: string) => {
+    return `/strategies/versions/${versionId}/deployments`;
+  };
+
+export const createDeploymentStrategiesVersionsVersionIdDeploymentsPost =
+  async (
+    versionId: string,
+    deploymentCreate: DeploymentCreate,
+    options?: RequestInit,
+  ): Promise<createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponse> => {
+    return customFetch<createDeploymentStrategiesVersionsVersionIdDeploymentsPostResponse>(
+      getCreateDeploymentStrategiesVersionsVersionIdDeploymentsPostUrl(
+        versionId,
+      ),
+      {
+        ...options,
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...options?.headers },
+        body: JSON.stringify(deploymentCreate),
+      },
+    );
+  };
+
+/**
+ * @summary Get Deployments
+ */
+export type getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponse200 =
+  {
+    data: PaginatedResponseDeploymentResponse;
+    status: 200;
+  };
+
+export type getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponse422 =
+  {
+    data: HTTPValidationError;
+    status: 422;
+  };
+
+export type getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponseComposite =
+
+    | getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponse200
+    | getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponse422;
+
+export type getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponse =
+  getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponseComposite & {
+    headers: Headers;
+  };
+
+export const getGetDeploymentsStrategiesVersionsVersionIdDeploymentsGetUrl = (
+  versionId: string,
+  params?: GetDeploymentsStrategiesVersionsVersionIdDeploymentsGetParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/strategies/versions/${versionId}/deployments?${stringifiedParams}`
+    : `/strategies/versions/${versionId}/deployments`;
+};
+
+export const getDeploymentsStrategiesVersionsVersionIdDeploymentsGet = async (
+  versionId: string,
+  params?: GetDeploymentsStrategiesVersionsVersionIdDeploymentsGetParams,
+  options?: RequestInit,
+): Promise<getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponse> => {
+  return customFetch<getDeploymentsStrategiesVersionsVersionIdDeploymentsGetResponse>(
+    getGetDeploymentsStrategiesVersionsVersionIdDeploymentsGetUrl(
+      versionId,
+      params,
+    ),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+/**
  * @summary Get Strategy Version
  */
 export type getStrategyVersionStrategiesVersionsVersionIdGetResponse200 = {
@@ -1250,61 +1318,6 @@ export const getBacktestsStrategiesVersionsVersionIdBacktestsGet = async (
       versionId,
       params,
     ),
-    {
-      ...options,
-      method: "GET",
-    },
-  );
-};
-
-/**
- * @summary Get Deployments
- */
-export type getDeploymentsStrategiesVersionIdDeploymentsGetResponse200 = {
-  data: PaginatedResponseDeploymentResponse;
-  status: 200;
-};
-
-export type getDeploymentsStrategiesVersionIdDeploymentsGetResponse422 = {
-  data: HTTPValidationError;
-  status: 422;
-};
-
-export type getDeploymentsStrategiesVersionIdDeploymentsGetResponseComposite =
-  | getDeploymentsStrategiesVersionIdDeploymentsGetResponse200
-  | getDeploymentsStrategiesVersionIdDeploymentsGetResponse422;
-
-export type getDeploymentsStrategiesVersionIdDeploymentsGetResponse =
-  getDeploymentsStrategiesVersionIdDeploymentsGetResponseComposite & {
-    headers: Headers;
-  };
-
-export const getGetDeploymentsStrategiesVersionIdDeploymentsGetUrl = (
-  versionId: string,
-  params?: GetDeploymentsStrategiesVersionIdDeploymentsGetParams,
-) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/strategies/${versionId}/deployments?${stringifiedParams}`
-    : `/strategies/${versionId}/deployments`;
-};
-
-export const getDeploymentsStrategiesVersionIdDeploymentsGet = async (
-  versionId: string,
-  params?: GetDeploymentsStrategiesVersionIdDeploymentsGetParams,
-  options?: RequestInit,
-): Promise<getDeploymentsStrategiesVersionIdDeploymentsGetResponse> => {
-  return customFetch<getDeploymentsStrategiesVersionIdDeploymentsGetResponse>(
-    getGetDeploymentsStrategiesVersionIdDeploymentsGetUrl(versionId, params),
     {
       ...options,
       method: "GET",

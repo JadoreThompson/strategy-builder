@@ -2,13 +2,15 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { handleApi } from "@/lib/utils/base";
 import {
   createBacktestStrategiesVersionsVersionIdBacktestPost,
+  createDeploymentStrategiesVersionsVersionIdDeploymentsPost,
   deleteVersionStrategiesVersionsVersionIdDelete,
   getBacktestsStrategiesVersionsVersionIdBacktestsGet,
-  getDeploymentsStrategiesVersionIdDeploymentsGet,
+  getDeploymentsStrategiesVersionsVersionIdDeploymentsGet,
   getPositionsStrategiesVersionsVersionIdPositionsGet,
   getStrategyVersionStrategiesVersionsVersionIdGet,
   getStrategyVersionsStrategiesStrategyIdVersionsGet,
   type BacktestCreate,
+  type DeploymentCreate,
   type GetStrategyVersionsStrategiesStrategyIdVersionsGetParams,
 } from "@/openapi";
 import {
@@ -140,6 +142,48 @@ export function useInfiniteBacktestsQuery(versionId: string) {
   });
 }
 
+export function useCreateDeploymentMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { versionId: string; data: DeploymentCreate }) =>
+      handleApi(
+        await createDeploymentStrategiesVersionsVersionIdDeploymentsPost(
+          params.versionId,
+          params.data,
+        ),
+      ),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.strategyVersionDeployments(data.version_id),
+      });
+    },
+  });
+}
+
+export function useInfiniteDeploymentsQuery(versionId: string) {
+  return useInfiniteQuery({
+    // queryKey: ["strategy-version-deployments-query-key", versionId],
+    queryKey: queryKeys.strategyVersionDeployments(versionId),
+    queryFn: async ({ pageParam = 1 }) => {
+      return handleApi(
+        await getDeploymentsStrategiesVersionsVersionIdDeploymentsGet(
+          versionId,
+          {
+            page: pageParam,
+          },
+        ),
+      );
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.has_next) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
+  });
+}
+
 export function usePositionsQuery(versionId: string) {
   return useQuery({
     queryKey: queryKeys.strategyVersionPositions(versionId),
@@ -157,26 +201,6 @@ export function useInfinitePositionsQuery(versionId: string) {
     queryFn: async ({ pageParam = 1 }) => {
       return handleApi(
         await getPositionsStrategiesVersionsVersionIdPositionsGet(versionId, {
-          page: pageParam,
-        }),
-      );
-    },
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
-      if (lastPage.has_next) {
-        return lastPage.page + 1;
-      }
-      return undefined;
-    },
-  });
-}
-
-export function useInfiniteDeploymentsQuery(versionId: string) {
-  return useInfiniteQuery({
-    queryKey: ["strategy-version-deployments-query-key", versionId],
-    queryFn: async ({ pageParam = 1 }) => {
-      return handleApi(
-        await getDeploymentsStrategiesVersionIdDeploymentsGet(versionId, {
           page: pageParam,
         }),
       );
